@@ -40,8 +40,10 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["trace", "debug", "info", "warn", "error", "fatal"])
     .default("info"),
-  DEFAULT_TIMEZONE: z.string().default("UTC"),
-  SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(10).default(90),
+  // IST-first: full display defaults to Asia/Kolkata, matching src/core/time/tz.js
+  DEFAULT_TIMEZONE: z.string().default("Asia/Kolkata"),
+  // zero-knob cadence: 420 minutes = 3-4 syncs/day, as documented
+  SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(10).default(420),
   RETENTION_DAYS: z.coerce.number().int().min(1).default(90),
   APP_ENCRYPTION_KEY: z.string().optional(),
 

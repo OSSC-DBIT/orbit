@@ -7,10 +7,10 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  type MessageComponentInteraction,
 } from "discord.js";
 import type { Database } from "../../database/client.js";
 import type { AppConfig } from "../../core/config/env.js";
+import type { ButtonInteraction } from "discord.js";
 import type { TenantService } from "../../tenants/services/tenant-service.js";
 import type { DeliveryService } from "../../opportunities/delivery/delivery-service.js";
 import type { Collector } from "../../opportunities/collectors/collector.js";
@@ -116,15 +116,34 @@ export function infoEmbed(title: string, description: string, color = 0x5865f2):
 /* ── pagination ──────────────────────────────────────────────────────────── */
 
 const EMBEDS_PER_PAGE = 5;
-// Collector lifetime: ends after 5 minutes of inactivity (hard cap 1 hour).
-// A single message's buttons used to die after flat 3 minutes, which users
-// experience as a broken/laggy Next button; idle resets on every click.
-const COLLECTOR_IDLE_MS = 5 * 60_000;
-const COLLECTOR_MAX_MS = 60 * 60_000;
 
 /**
- * Sends pages of up to 5 embeds with Prev/Next buttons. The collector is
- * message-scoped and self-cleans, so restarts never strand listeners.
+ * Page registry: messageId -> page state. Button clicks are routed globally
+ * from the interaction router, so there is no per-message collector to leak,
+ * orphan across restarts, or let die silently. Pages rendered by a previous
+ * process answer with a clear ephemeral note instead of the interaction
+ * timeout toast users saw as "didn't respond in time".
+ */
+interface PaginationState {
+  chunks: EmbedBuilder[][];
+  index: number;
+  owner: string;
+}
+
+const PAGE_REGISTRY = new Map<string, PaginationState>();
+const PAGE_REGISTRY_MAX = 200;
+
+function rememberPagination(messageId: string, state: PaginationState): void {
+  if (PAGE_REGISTRY.size >= PAGE_REGISTRY_MAX) {
+    const oldest = PAGE_REGISTRY.keys().next().value as string | undefined;
+    if (oldest !== undefined) PAGE_REGISTRY.delete(oldest);
+  }
+  PAGE_REGISTRY.set(messageId, state);
+}
+
+/**
+ * Sends pages of up to 5 embeds with Prev/Next buttons and remembers the
+ * page state for the interaction router.
  */
 export async function sendPaginated(ctx: OrbitCommandContext, pages: EmbedBuilder[]): Promise<void> {
   if (pages.length === 0) {
@@ -135,56 +154,62 @@ export async function sendPaginated(ctx: OrbitCommandContext, pages: EmbedBuilde
   const chunks: EmbedBuilder[][] = [];
   for (let i = 0; i < pages.length; i += EMBEDS_PER_PAGE) chunks.push(pages.slice(i, i + EMBEDS_PER_PAGE));
 
-  let index = 0;
-  const render: () => { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } = () => ({
-    embeds: chunks[index]!,
-    components: chunks.length > 1 ? [paginationRow(index, chunks.length)] : [],
+  await ctx.interaction.reply({
+    embeds: chunks[0]!,
+    components: chunks.length > 1 ? [paginationRow(0, chunks.length)] : [],
+    flags: EPHEMERAL_FLAG,
   });
-
-  await ctx.interaction.reply({ ...render(), flags: EPHEMERAL_FLAG });
-  if (chunks.length < 2) return;
+  if (chunks.length < 2) return; // single page: no buttons, nothing to track
 
   const message = await ctx.interaction.fetchReply();
-  const channel = ctx.interaction.channel;
-  if (!channel || !("guild" in channel)) return;
-
-  const collector = channel.createMessageComponentCollector({
-    filter: (c: MessageComponentInteraction) => c.isButton() && c.user.id === ctx.userId && c.message.id === message.id,
-    idle: COLLECTOR_IDLE_MS,
-    time: COLLECTOR_MAX_MS,
-  });
-  const log = scopedLogger(getLogger(), { tenant: "discord" });
-  collector.on("collect", async (c) => {
-    if (!c.isButton()) return;
-    if (c.customId === "orbit:prev") index = Math.max(0, index - 1);
-    else if (c.customId === "orbit:next") index = Math.min(chunks.length - 1, index + 1);
-    else return;
-    const startedAt = Date.now();
-    try {
-      await c.update(render());
-    } finally {
-      log.info({ component: c.customId, page: index + 1, total: chunks.length, ms: Date.now() - startedAt }, "pagination flip");
-    }
-  });
-  collector.on("end", () => {
-    // Durability: disable the row via the message webhook while it still
-    // counts (15 min window); past that fall back to the interaction edit,
-    // failing silently either way instead of crashing the logger loop.
-    message
-      .edit({ components: [paginationRow(index, chunks.length, true)] })
-      .catch(() => ctx.interaction.editReply({ components: [] }).catch(() => undefined));
-  });
+  rememberPagination(message.id, { chunks, index: 0, owner: ctx.userId });
 }
 
-function paginationRow(
-  current: number,
-  total: number,
-  allDisabled = false,
-): ActionRowBuilder<ButtonBuilder> {
+/**
+ * Router hook for Orbit pagination buttons. Acks every click fast: known
+ * messages flip in-process; unknown ones (pre restart) explain what happened
+ * instead of timing out.
+ */
+export async function routePaginationButton(button: ButtonInteraction): Promise<void> {
+  const state = PAGE_REGISTRY.get(button.message.id);
+  if (!state) {
+    await button
+      .reply({
+        content: "These pages expired with the last deployment restart. Run the command again for fresh pages.",
+        flags: EPHEMERAL_FLAG,
+      })
+      .catch(() => undefined);
+    return;
+  }
+  if (button.user.id !== state.owner) {
+    await button
+      .reply({ content: "Only the member who ran this command can page through it.", flags: EPHEMERAL_FLAG })
+      .catch(() => undefined);
+    return;
+  }
+  if (button.customId === "orbit:prev") state.index = Math.max(0, state.index - 1);
+  else if (button.customId === "orbit:next") state.index = Math.min(state.chunks.length - 1, state.index + 1);
+  else return;
+
+  const startedAt = Date.now();
+  try {
+    await button.update({
+      embeds: state.chunks[state.index]!,
+      components: [paginationRow(state.index, state.chunks.length)],
+    });
+  } finally {
+    scopedLogger(getLogger(), { tenant: "discord" }).info(
+      { component: button.customId, page: state.index + 1, total: state.chunks.length, ms: Date.now() - startedAt },
+      "pagination flip",
+    );
+  }
+}
+
+function paginationRow(current: number, total: number): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("orbit:prev").setLabel("Prev").setStyle(ButtonStyle.Secondary).setDisabled(allDisabled || current === 0),
+    new ButtonBuilder().setCustomId("orbit:prev").setLabel("Prev").setStyle(ButtonStyle.Secondary).setDisabled(current === 0),
     new ButtonBuilder().setCustomId("orbit:count").setLabel(`${current + 1} / ${total}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
-    new ButtonBuilder().setCustomId("orbit:next").setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(allDisabled || current === total - 1),
+    new ButtonBuilder().setCustomId("orbit:next").setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(current === total - 1),
   );
 }
 

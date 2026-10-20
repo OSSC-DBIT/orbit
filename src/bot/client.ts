@@ -4,6 +4,7 @@ import { getLogger, scopedLogger } from "../core/logging/logger.js";
 import { TenantService } from "../tenants/services/tenant-service.js";
 import { DiscordTargetResolver } from "./channel-resolver.js";
 import { dispatchCommand } from "./commands/index.js";
+import { routePaginationButton } from "./commands/context.js";
 import type { CommandDeps } from "./commands/context.js";
 
 /**
@@ -57,8 +58,13 @@ export async function startDiscordClient(
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-    await dispatchCommand(interaction, deps);
+    if (interaction.isChatInputCommand()) {
+      await dispatchCommand(interaction, deps);
+      return;
+    }
+    if (interaction.isButton()) {
+      await routePaginationButton(interaction);
+    }
   });
 
   // Non-fatal gateway boot: a bad token or Discord outage must never take
