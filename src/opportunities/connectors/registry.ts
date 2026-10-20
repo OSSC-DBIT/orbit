@@ -16,10 +16,16 @@ export const SOURCE_SYNC_PRIORITY = [
   "hackculture",
   "hackathon-api",
   "devpost",
-  "arbeitnow",
   "remotive",
   "hn-hiring",
 ] as const;
+
+/**
+ * Retired sources: no longer collected. Their rows stay in
+ * opportunity_sources for delivery history but are force-disabled on every
+ * boot so stale installs never sync them again.
+ */
+export const RETIRED_SOURCES = ["arbeitnow"] as const;
 
 /**
  * Global source registry bootstrap. Idempotent; called at startup and after
@@ -37,7 +43,6 @@ export const GLOBAL_SOURCES: Array<{
   { id: "hackathon-api", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
   { id: "hackculture", kind: "api", categories: ["hackathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
   { id: "devpost", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge"], config: {}, intervalMinutes: 420, enabled: 1 },
-  { id: "arbeitnow", kind: "api", categories: ["job", "internship", "remote_job"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
   { id: "remotive", kind: "api", categories: ["remote_job", "job"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
   { id: "hn-hiring", kind: "api", categories: ["job", "remote_job", "internship"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
 ];
@@ -58,6 +63,9 @@ export async function ensureDefaultSources(db: Database = getDb()): Promise<void
         target: opportunitySources.id,
         set: { kind: source.kind, categories: source.categories, config: source.config },
       });
+  }
+  for (const id of RETIRED_SOURCES) {
+    await db.update(opportunitySources).set({ enabled: 0 }).where(eq(opportunitySources.id, id));
   }
 }
 

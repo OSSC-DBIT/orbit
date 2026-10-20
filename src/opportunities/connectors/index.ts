@@ -1,6 +1,5 @@
 import type { SourceConnector } from "./base.js";
 import { DevpostConnector } from "./devpost.js";
-import { ArbeitnowConnector } from "./arbeitnow.js";
 import { RemotiveConnector } from "./remotive.js";
 import { HnHiringConnector } from "./hn-hiring.js";
 import { HackathonApiConnector } from "./hackathon-api.js";
@@ -22,8 +21,6 @@ export function createConnector(
       return new DevpostConnector();
     case "jobspy":
       return new JobSpyConnector();
-    case "arbeitnow":
-      return new ArbeitnowConnector();
     case "remotive":
       return new RemotiveConnector();
     case "hn-hiring":
@@ -47,5 +44,5 @@ export function createConnector(
   }
 }
 
-export { DevpostConnector, ArbeitnowConnector, RemotiveConnector, HnHiringConnector, HackathonApiConnector, HackCultureConnector, JobSpyConnector, RssConnector };
+export { DevpostConnector, RemotiveConnector, HnHiringConnector, HackathonApiConnector, HackCultureConnector, JobSpyConnector, RssConnector };
 export type { SourceConnector };

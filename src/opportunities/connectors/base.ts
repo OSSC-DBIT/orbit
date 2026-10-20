@@ -36,8 +36,6 @@ export function toRecords(items: NormalizedOpportunity[]): ConnectorRunResult ex
 export const SHARED_RATE_LIMITS = {
   /** Devpost: undocumented public endpoint → keep very conservative. */
   devpost: { requests: 2, windowMs: 60_000 },
-  /** Arbeitnow: documented "free public API, do not abuse" */
-  arbeitnow: { requests: 5, windowMs: 60_000 },
   /** Remotive: documented public API */
   remotive: { requests: 5, windowMs: 60_000 },
   /** Algolia-backed HN API: generous, still bounded */

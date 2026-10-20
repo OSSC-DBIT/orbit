@@ -93,7 +93,7 @@ delivery failures, webhook errors), never from raw stdout.
 ## Sources
 
 Detailed per source documentation (endpoints, fields, licensing, limits) lives in
-`docs/sources.md`. Supported: Devpost, Arbeitnow, Remotive, Hacker News Algolia,
+`docs/sources.md`. Supported: JobSpy (Indeed+Naukri pilot), Devpost, Remotive, Hacker News Algolia,
 hackathon api (0xarchit/hackathon-api, MIT) and HackCulture. MLH and Devfolio are
 not integrated because their public endpoints are dead.
 

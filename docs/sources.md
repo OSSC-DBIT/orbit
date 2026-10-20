@@ -3,6 +3,8 @@
 Six connectors feed the opportunity catalog. Docs describe behaviour; the
 authoritative endpoints live next to their code in
 `src/opportunities/connectors/`.
+`arbeitnow` was retired in October 2026 per maintainer decision (kept
+disabled in `RETIRED_SOURCES`; its listings were purged).
 
 ## Data honesty rules (all sources)
 
@@ -38,7 +40,6 @@ authoritative endpoints live next to their code in
 | `hackathon-api` | community hackathon aggregator (0xarchit/hackathon-api) | API | MIT; attribution recorded on every record |
 | `hackculture` | HackCulture API | API | public API; own terms |
 | `devpost` | Devpost public listings | scrape/API | public data; conservative rate |
-| `arbeitnow` | Arbeitnow job board API | API | public API |
 | `remotive` | Remotive remote jobs API | API | public API |
 | `hn-hiring` | Hacker News who-is-hiring via Algolia search | API | public API |
 
@@ -91,7 +92,7 @@ authoritative endpoints live next to their code in
   `is_registration_open` kept in metadata.
 - Same conservative merge and fingerprint rules as above.
 
-### devpost, arbeitnow, remotive, hn-hiring
+### devpost, remotive, hn-hiring
 
 - Public APIs documented upstream by each provider; connectors apply one
   normalization pass (text, URLs, dates) and one shared fingerprint model.
