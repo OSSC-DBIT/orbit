@@ -220,11 +220,14 @@ import { CATEGORY_COLORS } from "./category-colors.js";
 
 /** Compact listing embed used by browse/search/category commands. */
 export function listingEmbed(item: StoredOpportunity, tz: string): EmbedBuilder {
+  // discord.js rejects an empty-string description outright, and the `??`
+  // fallback does not catch ""; empty text must render the placeholder.
+  const description = truncate(item.description?.trim() ? item.description : "No description captured.", 350);
   const embed = new EmbedBuilder()
     .setColor(CATEGORY_COLORS[item.category] ?? 0x5865f2)
     .setTitle(truncate(item.title, 250))
     .setURL(item.applicationUrl ?? item.sourceUrl ?? null)
-    .setDescription(truncate(item.description ?? "No description captured.", 350));
+    .setDescription(description);
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [
     { name: "Category", value: item.category, inline: true },
     { name: "Source", value: item.sourceId, inline: true },

@@ -114,8 +114,7 @@ export class JobSpyConnector implements SourceConnector {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      const { text: description } = stripHtml(row.description ?? "", 1800);
-      const rawSkills = row.skills;
+      const { text: description } = stripHtml(row.description ?? "", 1800);      const rawSkills = row.skills;
       const skills: string[] = Array.isArray(rawSkills)
         ? rawSkills
         : typeof rawSkills === "string"
@@ -129,7 +128,7 @@ export class JobSpyConnector implements SourceConnector {
         title,
         organization: row.company?.trim() || null,
         category: isInternship ? "internship" : "job",
-        description,
+        description: description || null,
         descriptionHtml: null,
         applicationUrl,
         sourceUrl: null,
