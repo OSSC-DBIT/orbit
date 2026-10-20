@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { OrbitCommand } from "./context.js";
 import { requireAdmin, replyEphemeral, infoEmbed, truncate } from "./context.js";
 import { projectEvents, workflowRuns, githubWebhookDeliveries } from "../../database/schema/index.js";
@@ -88,13 +88,19 @@ export function projectCommands(): OrbitCommand[] {
           });
           await tenant.recordAudit(ctx.guildId, ctx.userId, "project.add", { repo, activity });
           const featureOn = await tenant.isFeatureEnabled(ctx.guildId, "github_projects");
+          const slug = ctx.deps.config.GITHUB_APP_SLUG;
+          const installLine = slug
+            ? `Install the app in one click: https://github.com/apps/${slug}/installations/new (choose this server, grant it access to ${repo}).`
+            : "To activate events, install the Orbit GitHub App with webhooks pointed at this deployment.";
           await replyEphemeral(
             ctx,
             infoEmbed(
               "Repository queued",
               featureOn
                 ? [
-                    `\`${repo}\` is monitored. To activate events, install the Orbit GitHub App with webhooks pointed at this deployment and grant it access to ${repo}.`,
+                    `\`${repo}\` is monitored.`,
+                    "",
+                    installLine,
                     "",
                     "Events begin flowing once the first webhook delivery for the repository lands (also flips it to verified).",
                   ].join("\n")
@@ -251,7 +257,15 @@ export function projectCommands(): OrbitCommand[] {
             errored: sql<number>`sum(case when status = 'error' then 1 else 0 end)::int`,
           })
           .from(githubWebhookDeliveries)
-          .where(sql`received_at > now() - interval '7 days' and repository_full_name = any(${monitored.map((m) => m.repositoryFullName)})`)
+          .where(
+            and(
+              sql`received_at > now() - interval '7 days'`,
+              // inArray (not any()) — drizzle expands dynamic lists safely;
+              // binding a JS array through any() serialized as a malformed
+              // array literal and crashed the health view
+              inArray(githubWebhookDeliveries.repositoryFullName, monitored.map((m) => m.repositoryFullName)),
+            ),
+          )
           .groupBy(sql`repository_full_name`)
           // drizzle JS field names (total) are NOT sql aliases; order by the
           // aggregate itself, never by an alias absent from the select list

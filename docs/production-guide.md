@@ -148,6 +148,7 @@ Create it at https://github.com/settings/apps/new:
 | Webhook: active | yes |
 | Webhook URL | `https://orbit-staging.webuildnow.in/api/webhooks/github` |
 | Webhook secret | value of `GITHUB_WEBHOOK_SECRET` |
+| App slug | the URL path part after `github.com/apps`; set as `GITHUB_APP_SLUG` so `/project add` emits the one click install link |
 | SSL verification | enabled |
 | Permissions: Actions | Read-only |
 | Permissions: Checks | Read-only |
