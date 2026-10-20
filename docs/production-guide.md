@@ -117,7 +117,9 @@ Database visualization: pgAdmin ships in compose and listens on
 `http://127.0.0.1:5050` only. Log in with `PGADMIN_EMAIL` / `PGADMIN_PASSWORD`;
 the database is pre-registered as "Orbit (staging)" connecting as the `orbit`
 role. Scale the service down (`docker compose stop pgadmin`) when you do not
-need it, and never route it through the public tunnel.
+need it, and never route it through the public tunnel. Ready-made monitoring
+queries live in `docker/pgadmin/monitoring.sql`: open them via Query Tool >
+Open File; the first block is a one-glance health verdict.
 
 Useful host-side commands:
 
