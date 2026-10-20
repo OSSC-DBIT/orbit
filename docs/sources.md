@@ -34,12 +34,34 @@ authoritative endpoints live next to their code in
 
 | Connector id | Source | Kind | License / attribution |
 | --- | --- | --- | --- |
+| `jobspy` | Indeed + Naukri via bundled python-jobspy CLI | CLI pilot | python-jobspy MIT; per-board attribution on every record; boards' own terms apply to the data they serve |
 | `hackathon-api` | community hackathon aggregator (0xarchit/hackathon-api) | API | MIT; attribution recorded on every record |
 | `hackculture` | HackCulture API | API | public API; own terms |
 | `devpost` | Devpost public listings | scrape/API | public data; conservative rate |
 | `arbeitnow` | Arbeitnow job board API | API | public API |
 | `remotive` | Remotive remote jobs API | API | public API |
 | `hn-hiring` | Hacker News who-is-hiring via Algolia search | API | public API |
+
+### jobspy (pilot, India-first jobs)
+
+- Bundled binary: the app image ships a Python venv at `/opt/jobspy` with
+  `python-jobspy` 1.4.0 (MIT, pinned). The connector spawns the `jobspy` CLI;
+  no sidecar container and no extra service to run.
+- Boards enabled for the pilot: `indeed` + `naukri`, country `India`, window
+  `hours_old 72`, `results_wanted 50` per board per pass, two passes per run
+  (plain jobs + `--job-type internship`). No proxies; if a board blocks the
+  host, that board reports an error upstream and exits nonzero only when
+  EVERY board fails: the connector throws and the collector records health.
+- Real output shapes (verified with live rows Oct 2026): `skills` is a
+  comma-separated string (or list), untyped rows carry `job_type: null`,
+  salary floats with `currency` and `interval` when the board publishes
+  them, `date_posted` is a plain date. All mapped defensively: missing
+  fields are absent from the JSON lines, never guessed.
+- Jobs and internships legitimately have no deadline: `application_deadline`
+  and event dates stay `null`. Attribution is per board in metadata.
+- The call frequency is the standard 420 minute cadence, within each board's
+  tolerance as observed the day the pilot shipped; no LinkedIn, no proxies,
+  no other boards unless a maintainer changes the CLI args (pinned in code).
 
 ### hackathon-api (documented in detail)
 

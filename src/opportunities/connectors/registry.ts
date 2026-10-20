@@ -7,11 +7,12 @@ import { DEFAULT_SOURCE_INTERVAL_MINUTES } from "./base.js";
 /**
  * Sync preference order. The first source runs FIRST each cycle and therefore
  * claims canonical ownership of any listing several sources deliver (insert
- * once dedup: later sources only add bookkeeping rows). HackCulture is
- * deliberately first: it is the closest source of campus/community hackathon
- * content for the maintainers' audience.
+ * once dedup: later sources only add bookkeeping rows). JobSpy is first by
+ * maintainer decision (India-first jobs; Indeed + Naukri pilot), HackCulture
+ * follows as the preferred campus/community hackathon source.
  */
 export const SOURCE_SYNC_PRIORITY = [
+  "jobspy",
   "hackculture",
   "hackathon-api",
   "devpost",
@@ -31,7 +32,9 @@ export const GLOBAL_SOURCES: Array<{
   config: Record<string, unknown>;
   intervalMinutes?: number;
   enabled: 0 | 1;
-}> = [  { id: "hackathon-api", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
+}> = [
+  { id: "jobspy", kind: "api", categories: ["job", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
+  { id: "hackathon-api", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
   { id: "hackculture", kind: "api", categories: ["hackathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
   { id: "devpost", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge"], config: {}, intervalMinutes: 420, enabled: 1 },
   { id: "arbeitnow", kind: "api", categories: ["job", "internship", "remote_job"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },

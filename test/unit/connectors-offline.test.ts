@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HackathonApiConnector } from "../../src/opportunities/connectors/hackathon-api.js";
 import { HackCultureConnector } from "../../src/opportunities/connectors/hackculture.js";
+import { JobSpyConnector } from "../../src/opportunities/connectors/jobspy.js";
 
 /**
  * Connector tests run fully offline: global fetch is stubbed with recorded
@@ -235,5 +236,116 @@ describe("hackculture connector", () => {
     expect(first.tags).toContain("hackculture");
     expect(first.tags).toContain("is_featured"); // extracted from {name,value} pair
     expect(first.metadata.coverImage).toBe("https://hackcultureplatform.example.test/event-assets/cover.jpg");
+  });
+});
+
+describe("jobspy connector (Indeed + Naukri pilot via bundled CLI)", () => {
+  // Fixture lines mirror the CLI JSONL shape verified in records.py:
+  // fields the board did not provide are simply absent (no NaN tokens);
+  // one raw NaN line is included to prove the defensive scrubber.
+  const INDEED_LINE = JSON.stringify({
+    site: "indeed",
+    title: "Backend Engineer",
+    company: "Paytm",
+    location: "Bengaluru, India",
+    job_type: "fulltime",
+    description: "Build the payments backend",
+    date_posted: "2026-10-18",
+    job_url: "https://www.indeed.com/viewjob?jk=abc123",
+    min_amount: 1200000,
+    max_amount: 1800000,
+    currency: "INR",
+    interval: "yearly",
+    is_remote: false,
+    skills: ["java", "kafka"],
+  });
+  const NAUKRI_LINE = JSON.stringify({
+    site: "naukri",
+    title: "Software Intern",
+    company: "Zoho",
+    location: "Chennai, India",
+    job_type: "internship",
+    description: "Work with the frontend team",
+    date_posted: "2026-10-19 00:00:00",
+    job_url: "https://www.naukri.com/joblisting?id=123",
+    is_remote: false,
+  });
+  // Handcrafted row with bare NaN tokens (invalid JSON from a flawed
+  // upstream): the connector's scrubber must neutralize them, proving the
+  // safety net without relying on upstream never regressing.
+  const NAN_LINE =
+    '{"site":"indeed","title":"Data Engineer","company":"Flipkart","job_url":"https://www.indeed.com/viewjob?jk=nan-row","min_amount":NaN,"max_amount":NaN,"currency":NaN}';
+
+  function fakeRunner(lines: string[]): { runner: (args: string[]) => Promise<string>; calls: string[][] } {
+    const calls: string[][] = [];
+    return {
+      runner: async (args: string[]) => {
+        calls.push(args);
+        return lines.join("\n") + "\n";
+      },
+      calls,
+    };
+  }
+
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("passes the verified 1.4.0 CLI flags and maps both boards", async () => {
+    const { runner, calls } = fakeRunner([INDEED_LINE, NAUKRI_LINE]);
+    const { records } = await new JobSpyConnector(runner).fetch();
+
+    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(2);
+    const jobArgs = calls[0]!;
+    const internArgs = calls[1]!;
+    const argValue = (args: string[], flag: string): string => {
+      const idx = args.indexOf(flag);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      return args[idx + 1] ?? "";
+    };
+    expect(argValue(jobArgs, "--site")).toBe("indeed,naukri");
+    expect(argValue(jobArgs, "--country-indeed")).toBe("India");
+    expect(argValue(jobArgs, "--fields")).toBe("all");
+    expect(jobArgs).not.toContain("--job-type");
+    expect(argValue(internArgs, "--job-type")).toBe("internship");
+
+    expect(records).toHaveLength(2);
+    const job = records[0]!;
+    expect(job.title).toBe("Backend Engineer");
+    expect(job.category).toBe("job");
+    expect(job.organization).toBe("Paytm");
+    expect(job.applicationUrl).toBe("https://indeed.com/viewjob?jk=abc123");
+    expect(job.description).toBe("Build the payments backend");
+    expect(job.compensation?.currency).toBe("INR");
+    expect(job.compensation?.amountMin).toBe(1200000);
+    expect(job.metadata.attribution).toBe("via Indeed");
+    expect(job.sourcePublishedAt).toBeInstanceOf(Date);
+
+    const intern = records[1]!;
+    expect(intern.category).toBe("internship");
+    expect(intern.metadata.attribution).toBe("via Naukri");
+    expect(intern.compensation).toBeNull();
+    expect(intern.applicationDeadline).toBeNull();
+  });
+
+  it("survives a malformed line and dedupes identical rows", async () => {
+    const { runner } = fakeRunner(["not json at all", INDEED_LINE, INDEED_LINE]);
+    const { records } = await new JobSpyConnector(runner).fetch();
+    expect(records).toHaveLength(1);
+  });
+
+  it("scrubs bare NaN tokens as a safety net", async () => {
+    const { runner } = fakeRunner([NAN_LINE]);
+    const { records } = await new JobSpyConnector(runner).fetch();
+    expect(records).toHaveLength(1);
+    expect(records[0]!.title).toBe("Data Engineer");
+  });
+
+  it("surfaces CLI failure as a thrown error (source health)", async () => {
+    const runner = async () => {
+      throw new Error("Command failed: jobspy exit 1");
+    };
+    await expect(new JobSpyConnector(runner).fetch()).rejects.toThrow(/jobspy scrape failed/);
   });
 });
