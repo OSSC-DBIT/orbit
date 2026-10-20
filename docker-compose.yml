@@ -92,5 +92,38 @@ services:
         max-size: "20m"
         max-file: "3"
 
+  # pgAdmin for database visualization. Local only (127.0.0.1:5050): never
+  # expose it through the public tunnel. The Orbit server is pre-registered
+  # connecting as the NOSUPERUSER orbit application role.
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      # pgAdmin validates the login as a real-domain email: reserved names
+      # (like *.local) crash it at boot; set PGADMIN_EMAIL in .env
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      # pre-registered server: browser still shows tables without manual setup
+      PGADMIN_SERVER_JSON: |
+        {"Servers": {"1": {"Name": "Orbit (staging)", "Group": "Servers",
+          "Host": "postgres", "Port": 5432, "MaintenanceDB": "${POSTGRES_DB:-orbit}",
+          "Username": "orbit",
+          "Password": "${POSTGRES_APP_PASSWORD}", "StorePassword": true,
+          "SSLMode": "disable"}}}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "127.0.0.1:5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   pgdata:
+  pgadmin_data:

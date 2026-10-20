@@ -28,6 +28,11 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
   ALTER DEFAULT PRIVILEGES FOR ROLE orbit IN SCHEMA public
     GRANT ALL ON FUNCTIONS TO orbit;
+
+  -- Direct connections (pgAdmin, psql as orbit) start in the same system
+  -- scope the app pool opens with. Tenant scoping still happens only through
+  -- TenantService, which overrides this inside withTenant transactions.
+  ALTER ROLE orbit IN DATABASE orbit SET app.guild_id = '__system__';
 EOSQL
 
 echo "orbit application role ready (NOSUPERUSER, owns the orbit database)"

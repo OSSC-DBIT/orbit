@@ -92,6 +92,8 @@ cp .env.example .env
 | `SYNC_INTERVAL_MINUTES` | you | `420` keeps the 3-4 syncs/day cadence |
 | `DISCORD_REGISTER_COMMANDS` | `1` on first install | registers slash commands at boot |
 | `RETENTION_DAYS` | you | cleanup window for event logs |
+| `PGADMIN_EMAIL` | `you@yourdomain.dev` | login for pgAdmin at `http://127.0.0.1:5050`; reserved names like `*.local` fail its boot validation |
+| `PGADMIN_PASSWORD` | `openssl rand -hex 18` | pgAdmin browser password; never reuse a real secret here |
 
 ## 5. Database setup (automatic)
 
@@ -105,6 +107,17 @@ Why this matters: PostgreSQL superusers bypass RLS no matter what policies
 say. The whole tenant isolation story (guild A can never read or write guild
 B) only holds when the application role is a plain role. Never point
 `DATABASE_URL` at the postgres superuser.
+
+The same init script pins `app.guild_id = '__system__'` as a role-level
+default, so a direct connection as `orbit` boots into the same system scope
+the app pool opens with (row counts in pgAdmin match the running app; tenant
+scoping still comes exclusively from `TenantService` at runtime).
+
+Database visualization: pgAdmin ships in compose and listens on
+`http://127.0.0.1:5050` only. Log in with `PGADMIN_EMAIL` / `PGADMIN_PASSWORD`;
+the database is pre-registered as "Orbit (staging)" connecting as the `orbit`
+role. Scale the service down (`docker compose stop pgadmin`) when you do not
+need it, and never route it through the public tunnel.
 
 Useful host-side commands:
 
