@@ -253,7 +253,9 @@ export function projectCommands(): OrbitCommand[] {
           .from(githubWebhookDeliveries)
           .where(sql`received_at > now() - interval '7 days' and repository_full_name = any(${monitored.map((m) => m.repositoryFullName)})`)
           .groupBy(sql`repository_full_name`)
-          .orderBy(sql`total desc`)
+          // drizzle JS field names (total) are NOT sql aliases; order by the
+          // aggregate itself, never by an alias absent from the select list
+          .orderBy(sql`count(*) desc`)
           .limit(15);
         const lines = deliveries.map(
           (r) => `${r.errored > 0 ? "🔴" : "🟢"} \`${r.repositoryFullName}\`: ${r.processed}/${r.total} processed in 7 days`,
