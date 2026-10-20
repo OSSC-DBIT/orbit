@@ -64,4 +64,12 @@ describe("listingEmbed event window display", () => {
     item.eventStartsAt = new Date(Date.now() - 48 * 3600_000);
     expect(fieldNames(listingEmbed(item, "Asia/Kolkata"))).toContain("Event starts");
   });
+
+  it("surfaces the source registration state when provided", () => {
+    const item = baseItem();
+    item.metadata = { isRegistrationOpen: true };
+    const fields = listingEmbed(item, "Asia/Kolkata").data.fields ?? [];
+    const reg = fields.find((f) => f.name === "Registration");
+    expect(reg?.value).toBe("Open (source lists no cutoff)");
+  });
 });

@@ -243,6 +243,16 @@ export function listingEmbed(item: StoredOpportunity, tz: string): EmbedBuilder 
     fields.push({ name: "Event starts", value: formatInTz(item.eventStartsAt, tz), inline: true });
   }
   if (item.remoteStatus) fields.push({ name: "Mode", value: item.remoteStatus, inline: true });
+  const regOpen = (item.metadata as { isRegistrationOpen?: unknown } | null)?.isRegistrationOpen;
+  if (typeof regOpen === "boolean") {
+    // HackCulture cards carry no registration cutoff: show the real door
+    // state and say so, rather than inserting a guessed deadline
+    fields.push({
+      name: "Registration",
+      value: regOpen ? "Open (source lists no cutoff)" : "Closed",
+      inline: true,
+    });
+  }
   embed.addFields(fields);
   if (item.status === "closing_soon") embed.setFooter({ text: "Closing soon - apply fast" });
   return embed;
