@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# environment and secrets (never commit real values)
+.env
+.env.local
+.env.*.local
+secrets/
+
+# runtime artifacts
+logs/
+*.log
+npm-debug.log*
+
+# test and coverage
+coverage/
+
+# local backups
+backups/
+
+# editors and OS noise
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+*.pem

@@ -1,0 +1,16 @@
+# Normalize all text to LF in the repository; enforce LF on files that must
+# stay executable in POSIX shells (backup scripts, CI helpers).
+* text=auto
+*.sh text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+*.env.example text eol=lf
+Dockerfile text eol=lf

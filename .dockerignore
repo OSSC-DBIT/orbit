@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+backups
+coverage
+test
+docs
+*.md
+*.log
+# secrets never enter the build context; the example template stays available
+.env
+.env.local
+.env.*.local
