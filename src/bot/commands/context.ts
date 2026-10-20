@@ -235,7 +235,13 @@ export function listingEmbed(item: StoredOpportunity, tz: string): EmbedBuilder 
   if (item.applicationDeadline) {
     fields.push({ name: "Deadline (tenant time)", value: formatInTz(item.applicationDeadline, tz), inline: true });
   }
-  if (item.eventStartsAt) fields.push({ name: "Event starts", value: formatInTz(item.eventStartsAt, tz), inline: true });
+  if (item.eventEndsAt && item.eventEndsAt.getTime() >= Date.now() && item.eventStartsAt && item.eventStartsAt.getTime() <= Date.now()) {
+    // ongoing window: a past "starts" date reads like an expired opportunity,
+    // so live running events surface their true state instead
+    fields.push({ name: "Event running, ends", value: formatInTz(item.eventEndsAt, tz), inline: true });
+  } else if (item.eventStartsAt) {
+    fields.push({ name: "Event starts", value: formatInTz(item.eventStartsAt, tz), inline: true });
+  }
   if (item.remoteStatus) fields.push({ name: "Mode", value: item.remoteStatus, inline: true });
   embed.addFields(fields);
   if (item.status === "closing_soon") embed.setFooter({ text: "Closing soon - apply fast" });
