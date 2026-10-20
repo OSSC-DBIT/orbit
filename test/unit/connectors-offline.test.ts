@@ -186,16 +186,28 @@ describe("hackculture connector", () => {
           is_completed: true,
         },
         {
-          // no external url: falls back to the platform program page
-          _id: "fallback-1",
-          name: "Fallback Page Challenge",
-          slug: "fallback-page-challenge",
+          // ended before today: dropped by the today anchored freshness gate
+          _id: "ended-1",
+          name: "Ended Event",
+          slug: "ended-event",
+          type: "hackathon",
+          status: "published",
+          is_completed: false,
+          is_registration_open: true,
+          start_datetime: "2026-09-01T09:00:00Z",
+          end_datetime: "2026-09-10T18:00:00Z",
+        },
+        {
+          // undated cards are dropped per AGENTS.md (never surface guesses)
+          _id: "undated-1",
+          name: "Undated Program Page",
+          slug: "undated-program-page-challenge",
           type: "innovation_challenge",
           status: "published",
           is_completed: false,
           location: null,
           mode: null,
-          tags: null, // live probe shows null tags on some cards
+          tags: null,
         },
       ]),
     );
@@ -205,7 +217,7 @@ describe("hackculture connector", () => {
     expect(calls).toHaveLength(1); // single page under the 50-item page size
     expect(calls[0]!.url).toBe("https://hc.test/api/v1/hackathons?response_type=card&limit=50&skip=0");
     expect(result.sourceId).toBe("hackculture");
-    expect(result.records).toHaveLength(2);
+    expect(result.records).toHaveLength(1); // ended + undated + registration closed are all dropped
 
     const first = result.records[0]!;
     expect(first.organization).toBe("VTION");
@@ -221,10 +233,5 @@ describe("hackculture connector", () => {
     expect(first.metadata.isRegistrationOpen).toBe(true);
     expect(first.tags).toContain("hackculture");
     expect(first.tags).toContain("is_featured"); // extracted from {name,value} pair
-
-    const second = result.records[1]!;
-    expect(second.category).toBe("innovation_challenge");
-    expect(second.applicationUrl).toBe("https://hackculture.io/programs/fallback-page-challenge");
-    expect(second.organization).toBeNull();
   });
 });

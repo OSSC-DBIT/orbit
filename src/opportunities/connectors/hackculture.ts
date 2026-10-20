@@ -41,11 +41,11 @@ import { canonicalizeUrl } from "../normalization/url.js";
  * }
  *
  * Field discipline:
- *  - deadline: the platform card exposes NO separate registration deadline,
- *    so applicationDeadline stays null even though is_registration_open is a
- *    present-time fact recorded in metadata. end_datetime is used only for
- *    the event window and lifecycle aging. Nothing is invented.
- *  - items where status != published or is_completed === true are skipped.
+ *  - deadline: the platform card exposes NO separate registration cutoff
+ *    (only is_registration_open and an external URL), so applicationDeadline
+ *    stays null even when registration is open. Nothing is invented.
+ *  - is_registration_open closed cards are dropped along with anything whose
+ *    window ended; freshness is anchored on today's date at sync time.
  */
 const SOURCE_ID = "hackculture";
 const PAGE_SIZE = 50;
@@ -95,7 +95,7 @@ export class HackCultureConnector implements SourceConnector {
 
   async fetch(): Promise<ConnectorRunResult> {
     const now = new Date();
-    const cutoff = now.getTime() - 30 * 24 * 3600 * 1000; // skip stale ended events
+    const nowMs = now.getTime(); // today anchored freshness reference
     const all: HcCard[] = [];
 
     for (let page = 0, skip = 0; page < MAX_PAGES; page++, skip += PAGE_SIZE) {
@@ -113,10 +113,16 @@ export class HackCultureConnector implements SourceConnector {
     for (const card of all) {
       if (card.status && card.status !== "published") continue;
       if (card.is_completed === true) continue;
+      if (card.is_registration_open === false) continue; // closed = not actionable
 
       const startsAt = parseIsoDate(card.start_datetime);
       const endsAt = parseIsoDate(card.end_datetime);
-      if (endsAt && endsAt.getTime() < cutoff) continue;
+      // Today anchored freshness, per AGENTS.md (past or undated hackathons
+      // are dropped, never invented): ended anywhere -> dropped; no end date
+      // but started before today -> historical; completely undated -> dropped.
+      if (!startsAt && !endsAt) continue;
+      if (endsAt && endsAt.getTime() < nowMs) continue;
+      if (!endsAt && startsAt && startsAt.getTime() < nowMs) continue;
       if (!card.name || !card.slug) continue;
 
       const appUrl =
