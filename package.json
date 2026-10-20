@@ -31,7 +31,7 @@
     "fast-xml-parser": "^4.5.3",
     "pg": "^8.23.1",
     "pino": "^9.5.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
