@@ -56,6 +56,15 @@ interface HcLocation {
   address?: string | null;
 }
 
+/**
+ * Public card branding block; cover_photo and logo are public Azure blob
+ * image URLs the listing page itself renders.
+ */
+interface HcBranding {
+  cover_photo?: string | null;
+  logo?: string | null;
+}
+
 interface HcCard {
   _id: string;
   name: string;
@@ -72,6 +81,7 @@ interface HcCard {
   end_datetime?: string | null;
   slug?: string | null;
   organizer_name?: string | null;
+  branding?: HcBranding | null;
   /** Live API (re-verified Oct 2026): strings, {name,value} pairs, or null. */
   tags?: Array<string | { name?: unknown; value?: unknown }> | string | null;
   is_registration_open?: boolean | null;
@@ -158,6 +168,7 @@ export class HackCultureConnector implements SourceConnector {
           mode: card.mode ?? null,
           teamSize: card.min_team_size && card.max_team_size ? `${card.min_team_size}-${card.max_team_size}` : null,
           isRegistrationOpen: card.is_registration_open ?? null,
+          coverImage: canonicalizeUrl(card.branding?.cover_photo ?? null),
         },
         tags: [
           "hackculture",

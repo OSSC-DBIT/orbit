@@ -253,6 +253,10 @@ export function listingEmbed(item: StoredOpportunity, tz: string): EmbedBuilder 
       inline: true,
     });
   }
+  const cover = (item.metadata as { coverImage?: unknown } | null)?.coverImage;
+  if (typeof cover === "string" && cover.startsWith("https://")) {
+    embed.setThumbnail(cover); // per-item cover art keeps 5 card pages scannable
+  }
   embed.addFields(fields);
   if (item.status === "closing_soon") embed.setFooter({ text: "Closing soon - apply fast" });
   return embed;

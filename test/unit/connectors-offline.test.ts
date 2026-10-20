@@ -174,6 +174,7 @@ describe("hackculture connector", () => {
           organizer_name: "VTION",
           // live API shape re-verified Oct 2026: {name,value} tag pairs
           tags: [{ name: "is_featured", value: "false" }],
+          branding: { cover_photo: "https://hackcultureplatform.example.test/event-assets/cover.jpg", logo: null },
           is_registration_open: true,
           external_registration_url: "https://unstop.com/h/vtion?ref=x",
         },
@@ -233,5 +234,6 @@ describe("hackculture connector", () => {
     expect(first.metadata.isRegistrationOpen).toBe(true);
     expect(first.tags).toContain("hackculture");
     expect(first.tags).toContain("is_featured"); // extracted from {name,value} pair
+    expect(first.metadata.coverImage).toBe("https://hackcultureplatform.example.test/event-assets/cover.jpg");
   });
 });

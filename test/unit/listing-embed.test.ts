@@ -72,4 +72,16 @@ describe("listingEmbed event window display", () => {
     const reg = fields.find((f) => f.name === "Registration");
     expect(reg?.value).toBe("Open (source lists no cutoff)");
   });
+
+  it("sets the cover image as thumbnail when the source provides one", () => {
+    const item = baseItem();
+    item.metadata = { coverImage: "https://cdn.example.test/cover.jpg" };
+    expect(listingEmbed(item, "Asia/Kolkata").data.thumbnail?.url).toBe("https://cdn.example.test/cover.jpg");
+  });
+
+  it("ignores non-https or absent covers", () => {
+    const item = baseItem();
+    item.metadata = { coverImage: "http://insecure.example.test/cover.jpg" };
+    expect(listingEmbed(item, "Asia/Kolkata").data.thumbnail).toBeUndefined();
+  });
 });

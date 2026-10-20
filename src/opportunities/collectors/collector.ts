@@ -183,7 +183,9 @@ export class Collector {
           set: { opportunityId: existing.id, lastSeenAt: now, lastSyncAt: now, lastSyncStatus: "present", rawUrl: record.sourceUrl },
         });
 
-      // bookkeeping refresh only; unchanged fingerprint ⇒ no re-announce
+      // bookkeeping refresh only; unchanged fingerprint => no re-announce.
+      // metadata still refreshes: source flags/covers change without being
+      // announcement-worthy (e.g. covers, registration open state)
       if (existing.contentFingerprint === fingerprint) {
         await tx
           .update(opportunities)
@@ -191,6 +193,7 @@ export class Collector {
             lastSeenAt: now,
             sourceUpdatedAt: record.sourceUpdatedAt ?? existing.sourceUpdatedAt,
             status: existing.status === "removed" || existing.status === "expired" || existing.status === "closed" ? "open" : existing.status,
+            metadata: record.metadata,
           })
           .where(eq(opportunities.id, existing.id));
         return { outcome: "unchanged", id: existing.id };
