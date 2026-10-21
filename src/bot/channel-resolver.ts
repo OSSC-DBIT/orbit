@@ -1,11 +1,13 @@
 import type { Client, TextChannel, GuildBasedChannel } from "discord.js";
 import type { TenantService } from "../tenants/services/tenant-service.js";
 import type { ChannelKind } from "../core/types/common.js";
+import { channelKindForCategory } from "../core/types/common.js";
 import type { SendPayload, DiscordChannel } from "../opportunities/delivery/delivery-service.js";
 
 /**
  * Resolves Discord sendable channels from tenant channel configuration for
- * the delivery engine (instant, digest, deadline and infrastructure feeds).
+ * the delivery engine (instant, digest, deadline, infrastructure and
+ * per category opportunity feeds).
  */
 export class DiscordTargetResolver {
   constructor(
@@ -17,6 +19,25 @@ export class DiscordTargetResolver {
     const row = await this.tenant.getChannel(guildId, kind);
     if (!row) return null;
     return this.toDiscordChannel(row.channelId, guildId);
+  }
+
+  /**
+   * Category aware opportunity routing: the dedicated kind channel
+   * (hackathons/jobs/internships) wins when bound, the guild's
+   * "opportunities" binding is the catch-all fallback. Returns the winning
+   * kind too so mention roles follow the channel that was chosen.
+   */
+  async resolveOpportunityTarget(
+    guildId: string,
+    category: string,
+  ): Promise<{ channel: DiscordChannel; kind: ChannelKind } | null> {
+    const specific = channelKindForCategory(category);
+    if (specific) {
+      const channel = await this.resolve(specific, guildId);
+      if (channel) return { channel, kind: specific };
+    }
+    const fallback = await this.resolve("opportunities", guildId);
+    return fallback ? { channel: fallback, kind: "opportunities" } : null;
   }
 
   /** Tenant-mention role id for the given kind, when configured. */

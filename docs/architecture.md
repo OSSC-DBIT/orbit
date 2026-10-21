@@ -92,9 +92,10 @@ integration API.
 ## Multi tenancy model
 
 - Every tenant record carries `guild_id`. Tenant tables (guild_feature_settings,
-  guild_channels, guild_preferences, guild_authorized_roles, guild_projects,
-  opportunity_deliveries, deadline_notifications, project_events, audit_logs,
-  infrastructure_hosts) are protected with `FORCE ROW LEVEL SECURITY`.
+  guild_channels, guild_preferences, guild_authorized_roles,
+  opportunity_deliveries, deadline_notifications, audit_logs,
+  infrastructure_hosts, infra_events) are protected with
+  `FORCE ROW LEVEL SECURITY`.
 - The policy uses the transaction local GUC `app.guild_id`:
   `guild_id = current_setting('app.guild_id') or app.guild_id = '__system__'`.
 - TenantService opens `withTenant(guildId, ...)` transactions for all tenant

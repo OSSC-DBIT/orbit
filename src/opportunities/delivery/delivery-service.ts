@@ -33,6 +33,16 @@ export interface EmbedPayload {
 export interface DiscordTargetResolver {
   resolve(kind: ChannelKind, guildId: string): Promise<DiscordChannel | null>;
   mentionFor(kind: ChannelKind, guildId: string): Promise<string | null> | string | null;
+  /**
+   * Optional category aware routing for instant opportunity posts: dedicated
+   * per category channel first (hackathons/jobs/internships), the guild's
+   * "opportunities" binding as fallback. Absent resolvers keep the legacy
+   * single channel behavior.
+   */
+  resolveOpportunityTarget?(
+    guildId: string,
+    category: string,
+  ): Promise<{ channel: DiscordChannel; kind: ChannelKind } | null>;
 }
 
 export type DeliveryKind = "instant" | "digest" | "deadline";
@@ -105,11 +115,27 @@ export class DeliveryService {
     deliveryKind: DeliveryKind,
   ): Promise<"delivered" | "duplicate" | "fail" | "no-channel"> {
     if (!this.targets) return "no-channel";
-    const channel = await this.targets.resolve(kind, guildId);
-    if (!channel) return "no-channel";
+    let channel: DiscordChannel | null;
+    let mentionKind: ChannelKind = kind;
+    if (
+      deliveryKind === "instant" &&
+      kind === "opportunities" &&
+      this.targets.resolveOpportunityTarget &&
+      typeof opp?.category === "string"
+    ) {
+      // category split: #hackathons / #jobs / #internships when bound,
+      // otherwise the guild's opportunities channel catch-all
+      const target = await this.targets.resolveOpportunityTarget(guildId, opp.category);
+      if (!target) return "no-channel";
+      channel = target.channel;
+      mentionKind = target.kind;
+    } else {
+      channel = await this.targets.resolve(kind, guildId);
+      if (!channel) return "no-channel";
+    }
 
     if (deliveryKind === "instant") {
-      const mention = await this.targets.mentionFor(kind, guildId);
+      const mention = await this.targets.mentionFor(mentionKind, guildId);
       const payload = buildSendPayload(opp, mention ? [mention] : []);
       return this.sendWithClaim(guildId, opp, channel, deliveryKind, payload);
     }

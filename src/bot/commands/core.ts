@@ -24,7 +24,7 @@ function helpEmbed(): EmbedBuilder {
         "**Configuration (admins only)**",
         "`/setup` guided configuration - `/status` tenant snapshot",
         "`/features` enable or disable capability groups",
-        "`/channels` map channel kinds (opportunities, digest, deadlines, infrastructure)",
+        "`/channels` map channel kinds (opportunities, category splits hackathons/jobs/internships, digest, deadlines, infrastructure)",
         "`/preferences` keyword and filter tuning - `/digest` digest schedule",
         "`/sources` view and manage opportunity sources - `/timezone` set guild timezone",
         "`/authorized-roles` add or remove admins by role or user - `/audit-log` recent actions",
@@ -81,11 +81,16 @@ export function coreCommands(): OrbitCommand[] {
             [
               "Map feeds to channels with `/channels`:",
               "",
-              "`/channels set kind:opportunities channel:#feeds` - instant announcements",
+              "`/channels set kind:opportunities channel:#feeds` - instant announcements (catch-all)",
+              "`/channels set kind:hackathons channel:#hackathons` - category split",
+              "`/channels set kind:jobs channel:#jobs` - category split",
+              "`/channels set kind:internships channel:#internships` - category split",
               "`/channels set kind:digest channel:#daily-digest` - scheduled recap",
               "`/channels set kind:deadlines channel:#deadlines` - pre-deadline reminders",
-              "`/channels set kind:infrastructure channel:#ops` - deployment watchdog feed",
+              "`/channels set kind:infrastructure channel:#ops` - project monitoring fallback feed",
               "",
+              "Without a category split, everything posts to the opportunities channel;",
+              "with a split, only categories lacking their own channel land there.",
               "Each kind can also carry a mention role: `/channels set kind:... mention:@role`.",
             ].join("\n"),
           );
@@ -142,12 +147,13 @@ export function coreCommands(): OrbitCommand[] {
     handler: async (ctx) => {
       await requireAdmin(ctx);
       const { tenant } = ctx.deps;
-      const [guild, features, channels, prefs, health] = await Promise.all([
+      const [guild, features, channels, prefs, health, projects] = await Promise.all([
         tenant.getGuild(ctx.guildId),
         tenant.getFeatures(ctx.guildId),
         tenant.getChannels(ctx.guildId),
         tenant.getPreferences(ctx.guildId),
         getSourceHealth(ctx.deps.db),
+        tenant.listInfraProjects(ctx.guildId),
       ]);
 
       const embed = new EmbedBuilder()
@@ -185,6 +191,18 @@ export function coreCommands(): OrbitCommand[] {
                   `${h.consecutiveFailures > 0 && !h.lastSuccessAt ? "🔴" : "🟢"} ${h.id}${h.lastError ? ` (${h.lastError.slice(0, 60)})` : ""}`,
               )
               .join("\n") || "no sources",
+            inline: true,
+          },
+          {
+            name: "Project monitors",
+            value: projects.length
+              ? projects
+                  .map(
+                    (p) =>
+                      `${p.status === "active" ? "🟢" : p.status === "stale" ? "🔴" : "🟡"} ${p.name}${p.notifyChannelId ? ` <#${p.notifyChannelId}>` : ""}`,
+                  )
+                  .join("\n")
+              : "none registered (`/project add`)",
             inline: true,
           },
           {
