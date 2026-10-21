@@ -4,6 +4,10 @@ import { requireAdmin, replyEphemeral, infoEmbed } from "./context.js";
 import { CHANNEL_KINDS, FEATURE_KEYS, OPPORTUNITY_CATEGORIES } from "../../core/types/common.js";
 import { getSourceHealth, getOpportunityCountBySource, setSourceEnabled } from "./source-info.js";
 
+/** Choice lists derive from the canonical arrays so new kinds cannot drift. */
+const KIND_CHOICES = CHANNEL_KINDS.map((kind) => ({ name: kind, value: kind }));
+const FEATURE_CHOICES = FEATURE_KEYS.map((feature) => ({ name: feature, value: feature }));
+
 /**
  * Configuration commands (admin): /features /channels /preferences /digest
  * /sources. Every mutation is recorded through TenantService (audited).
@@ -28,13 +32,7 @@ export function configCommands(): OrbitCommand[] {
               .setName("kind")
               .setDescription("Which capability")
               .setRequired(true)
-              .addChoices(
-                { name: "opportunities", value: "opportunities" },
-                { name: "deadline_alerts", value: "deadline_alerts" },
-                { name: "digest", value: "digest" },
-                { name: "ai_summaries", value: "ai_summaries" },
-                { name: "infrastructure_alerts", value: "infrastructure_alerts" },
-              ),
+              .addChoices(...FEATURE_CHOICES),
           ),
       )
       .addSubcommand((s) =>
@@ -46,13 +44,7 @@ export function configCommands(): OrbitCommand[] {
               .setName("kind")
               .setDescription("Which capability")
               .setRequired(true)
-              .addChoices(
-                { name: "opportunities", value: "opportunities" },
-                { name: "deadline_alerts", value: "deadline_alerts" },
-                { name: "digest", value: "digest" },
-                { name: "ai_summaries", value: "ai_summaries" },
-                { name: "infrastructure_alerts", value: "infrastructure_alerts" },
-              ),
+              .addChoices(...FEATURE_CHOICES),
           ),
       ),
     adminOnly: true,
@@ -87,16 +79,7 @@ export function configCommands(): OrbitCommand[] {
           .setName("set")
           .setDescription("Bind a channel kind")
           .addStringOption((o) =>
-            o
-              .setName("kind")
-              .setDescription("Which feed")
-              .setRequired(true)
-              .addChoices(
-                { name: "opportunities", value: "opportunities" },
-                { name: "digest", value: "digest" },
-                { name: "deadlines", value: "deadlines" },
-                { name: "infrastructure", value: "infrastructure" },
-              ),
+            o.setName("kind").setDescription("Which feed").setRequired(true).addChoices(...KIND_CHOICES),
           )
           .addChannelOption((o) =>
             o.setName("channel").setDescription("Target channel").setRequired(true).addChannelTypes(0, 5),
@@ -108,16 +91,7 @@ export function configCommands(): OrbitCommand[] {
           .setName("clear")
           .setDescription("Unbind a channel kind")
           .addStringOption((o) =>
-            o
-              .setName("kind")
-              .setDescription("Which feed")
-              .setRequired(true)
-              .addChoices(
-                { name: "opportunities", value: "opportunities" },
-                { name: "digest", value: "digest" },
-                { name: "deadlines", value: "deadlines" },
-                { name: "infrastructure", value: "infrastructure" },
-              ),
+            o.setName("kind").setDescription("Which feed").setRequired(true).addChoices(...KIND_CHOICES),
           ),
       ),
     adminOnly: true,

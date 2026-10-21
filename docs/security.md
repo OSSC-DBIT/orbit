@@ -79,7 +79,7 @@ Shared `httpFetch` gives per host client side rate limiting, bounded retries
 with jitter, timeouts and a response size cap. Source limits are deliberately
 conservative for undocumented endpoints. The admin API and integration API are
 bearer gated; apply external rate limiting at the reverse proxy if exposed
-publicly (see `docs/deployment.md` nginx snippet).
+publicly (see `docs/operations.md` nginx snippet).
 
 ## What is NOT in scope
 

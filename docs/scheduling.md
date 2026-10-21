@@ -74,6 +74,23 @@ No-repetition guarantee for deliveries (why restarts never spam Discord):
    twice.
 3. Per-tenant daily volume cap on top.
 
+Delivery rule in plain terms: a listing found during a pass posts
+immediately to the guild's bound channel for its category kind
+(`hackathons`, `internships`, `jobs`); every other category falls back to
+the `opportunities` channel binding. Nothing new found means nothing
+posted: there is no hourly "still here" spam by design. Deadlines and
+digests are separate surfaces with the same one-time delivery claims.
+
+Per-source tuning: a source board can tolerate less frequency, not more,
+so raise `interval_minutes` rather than the global default
+(`DEFAULT_SOURCE_INTERVAL_MINUTES = 60` in
+`src/opportunities/connectors/base.ts`) when a board throttles:
+
+```bash
+docker compose exec postgres psql -U postgres -d orbit -c \
+  "update opportunity_sources set interval_minutes = 120 where id = 'jobspy';"
+```
+
 ## 3. Lifecycle of one row in scheduled_jobs
 
 ```

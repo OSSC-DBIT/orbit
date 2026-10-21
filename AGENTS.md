@@ -116,7 +116,7 @@ role).
 | `src/bot/*` | discord client (non fatal login retry), embeds, commands, pagination |
 | `src/jobs/*` | durable scheduler, job handlers, digest calendar |
 | `src/api/*` | express server: health, metrics, admin, integration and project ingest routes |
-| `docs/*` | architecture, security, deployment, operations, sources |
+| `docs/*` | architecture, operations, scheduling, integrations, sources |
 
 ## Definition of done
 

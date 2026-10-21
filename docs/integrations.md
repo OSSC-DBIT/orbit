@@ -10,8 +10,8 @@ Base URLs:
   public (tunnel, live):         https://orbit-staging.webuildnow.in
 ```
 
-Related docs: `docs/operations.md` (runbook), `docs/cadence.md` (delivery
-guarantees), `docs/scheduling.md` (scheduler internals).
+Related docs: `docs/operations.md` (deploy and runbook), `docs/scheduling.md`
+(scheduler internals and delivery guarantees).
 
 ## Tokens
 

@@ -28,7 +28,7 @@ enforced both by row level security in PostgreSQL and by service layer checks.
 
 ```bash
 git clone <repo> /opt/orbit && cd /opt/orbit
-cp .env.example .env      # fill in real values (see docs/production-guide.md)
+cp .env.example .env      # fill in real values (see docs/operations.md)
 docker compose --profile tunnel up -d --build
 docker compose logs -f app
 ```
@@ -103,14 +103,13 @@ not integrated because their public endpoints are dead.
 
 ## Documentation
 
-- `docs/production-guide.md` - the full setup: Cloudflare tunnel, Discord
-  URLs, every credential
+- `docs/operations.md` - the full setup (machine prep, Cloudflare tunnel,
+  Discord URLs, credentials, backups, upgrades) plus the day 2 runbook:
+  health, jobs, incidents, capacity
 - `docs/architecture.md` - data flow, RLS design, scheduler, dedup chain
 - `docs/security.md` - threat model, secrets, redaction
-- `docs/deployment.md` - machine prep, compose lifecycle, backups, upgrades
-- `docs/operations.md` - runbook: health, jobs, incidents, capacity
+- `docs/scheduling.md` - scheduler internals, delivery cadence and no-repetition guarantees
 - `docs/sources.md` - source connectors in detail
-- `docs/cadence.md` - automatic delivery cadence and how no repetition is guaranteed
 - `docs/integrations.md` - the integration API: health report, failure feed,
   metrics, examples in curl/Node/Python/Prometheus for your own projects
 
