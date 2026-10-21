@@ -109,10 +109,12 @@ Liveness (no token):
 curl -s http://127.0.0.1:3000/healthz
 ```
 
-Full report (from outside the box: `https://orbit-staging.webuildnow.in/api/integrations/health`):
+Full report (guard: requires the `INTEGRATION_API_TOKEN` bearer header; on
+the public URL the same header applies):
 
 ```
-curl -s http://127.0.0.1:3000/api/integrations/health
+curl -s -H "Authorization: Bearer $INTEGRATION_API_TOKEN" \
+  http://127.0.0.1:3000/api/integrations/health
 ```
 
 The JSON document contains: db latency, the `scheduled_jobs` breakdown by
