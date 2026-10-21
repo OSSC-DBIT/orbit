@@ -4,8 +4,10 @@ Guide for AI coding agents (and newcomers) working in the Orbit repository.
 Read this before editing anything. It encodes invariants that regression tests
 and reviewers will hold you to.
 
-Version: 21.10.2026. On every release, bump this date and append the entry
-in `CHANGELOG.md`; repo docs live in 8 files only, keep it that way when
+Version: 21.10.2026. Releases are date based: the git tag and the release
+name are the release date itself (for example `21.10.2026`), not semver.
+On every release, bump this date, append the entry in `CHANGELOG.md` and
+tag that date. Repo docs live in 8 files only, keep it that way when
 touching docs.
 
 ## What Orbit is

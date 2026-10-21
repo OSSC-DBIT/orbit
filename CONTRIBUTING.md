@@ -92,6 +92,26 @@ Schema changes: edit `src/database/schema/index.ts`, run
 (install idempotently) FORCE row level security policies on all tenant tables,
 so new tenant tables must be added to `tenantTables` in the schema index.
 
+## Releases
+
+Releases are date based, not semver:
+
+1. Append a section dated DD.MM.YYYY to `CHANGELOG.md`, written from the
+   deployer's point of view (what changed and what to watch out for).
+2. Set `package.json` `version` and the `Version:` stamp in `AGENTS.md` to
+   the same date.
+3. Tag with the date itself and publish a GitHub release:
+
+   ```bash
+   git tag -a 21.10.2026 -m "Orbit 21.10.2026 (stable)"
+   git push origin 21.10.2026
+   gh release create 21.10.2026 --title "Orbit 21.10.2026 (stable)" \
+     --notes-file release-notes.md --latest
+   ```
+
+   Detailed notes derive from that `CHANGELOG.md` section plus the staging
+   verification results.
+
 ## Security
 
 See `SECURITY.md` for private vulnerability reporting. Please do not open

@@ -4,7 +4,11 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | yes (main + latest release) |
+| 21.10.2026 (latest) | yes |
+| older date releases | fixes land in the next dated release |
+
+Releases are date based: the git tag and release name are the release date
+itself (for example `21.10.2026`), not semver.
 
 ## Reporting a vulnerability
 
