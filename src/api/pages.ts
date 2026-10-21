@@ -42,7 +42,7 @@ export function homeHtml(): string {
     "Orbit",
     `<p>Orbit is a multi tenant Discord bot and platform that discovers, normalizes,
 deduplicates and delivers developer opportunities (hackathons, internships,
-jobs) and monitors GitHub projects for CI failures.</p>
+jobs).</p>
 <p>This instance is the <strong>staging</strong> deployment, reachable at
 <code>${PUBLIC_URL}</code> through a Cloudflare tunnel.</p>
 <h2>Links</h2>
@@ -60,7 +60,7 @@ export function privacyHtml(): string {
     `<p>Last updated: October 2026</p>
 <h2>What this is</h2>
 <p>This is a self hosted instance of Orbit maintained by ${MAINTAINER}. When
-you use the Discord bot or the GitHub integration of this instance, the
+you use the Discord bot of this instance, the
 operator of this instance processes the data described below.</p>
 <h2>Data we collect</h2>
 <ul>
@@ -68,10 +68,6 @@ operator of this instance processes the data described below.</p>
 user id and interaction metadata for slash commands you run.</li>
 <li>Configuration the server admins set (feature toggles, channels,
 preferences, audit trail).</li>
-<li>GitHub webhook data for repositories you monitor: repository name,
-event type, commit/branch/run references and redacted summaries of CI
-failures. Cards, tokens, secrets and personal emails are redacted before
-storage.</li>
 <li>Opportunity listings fetched from public third party APIs (public data,
 with source attribution).</li>
 </ul>
@@ -82,15 +78,15 @@ read, log or store messages.</li>
 <li>Direct messages, your Discord password, or payment information.</li>
 </ul>
 <h2>Where data lives</h2>
-<p>In the instance's own PostgreSQL database on the operator's host. Secrets
-such as GitHub installation tokens are encrypted at rest (AES-256-GCM) with
-a key kept in the operator's environment file.</p>
+<p>In the instance's own PostgreSQL database on the operator's host. Discord
+access tokens live only in the operator's environment file and are never
+stored in the database.</p>
 <h2>Optional AI processing</h2>
 <p>If enabled, short redacted excerpts may be sent to the Groq API to produce
 one line summaries. This is budget capped, optional and degrades silently:
 without AI the bot remains fully functional.</p>
 <h2>Third party services</h2>
-<p>Discord (bot platform), GitHub (webhooks and API), the public source APIs
+<p>Discord (bot platform), the public source APIs
 listed in <code>docs/sources.md</code>, and optionally Groq. This project is
 not affiliated with any of them.</p>
 <h2>Retention</h2>
@@ -118,7 +114,7 @@ export function termsHtml(): string {
 <h2>The service</h2>
 <p>This instance is a self hosted deployment of Orbit, open source software
 released under the MIT license (<code>LICENSE</code>), maintained by
-${MAINTAINER}. Using the Discord bot, the integration API or the webhooks
+${MAINTAINER}. Using the Discord bot or the integration API
 of this instance means you agree to these terms.</p>
 <h2>Use of the bot</h2>
 <ul>
@@ -129,9 +125,8 @@ unlawful purpose.</li>
 <li>Administrator capability in a Discord server determines who configures
 the bot there; guard your server accordingly.</li>
 </ul>
-<h2>Monitored repositories and sources</h2>
-<p>Repository monitoring needs your authority over those repositories. The
-platform respects upstream APIs of public sources and their rate limits;
+<h2>Sources</h2>
+<p>The platform respects upstream APIs of public sources and their rate limits;
 do not configure it to scrape or hammer third party services.</p>
 <h2>Information quality</h2>
 <p>Listings and deadlines come from public sources. AI assistance (optional)

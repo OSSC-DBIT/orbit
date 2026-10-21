@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -48,7 +47,7 @@ export const guildChannels = pgTable(
   {
     id: serial("id").primaryKey(),
     guildId: varchar("guild_id", { length: 32 }).notNull(),
-    /** "opportunities" | "github_alerts" | "github_activity" | "digest" | "deadlines" | "infrastructure" */
+    /** "opportunities" | "digest" | "deadlines" | "infrastructure" */
     kind: varchar("kind", { length: 32 }).notNull(),
     channelId: varchar("channel_id", { length: 32 }).notNull(),
     /** optional role to mention (validated, never @everyone) */
@@ -97,29 +96,6 @@ export const guildAuthorizedRoles = pgTable(
   (t) => [uniqueIndex("guild_authorized_roles_unique").on(t.guildId, t.roleOrUserId)],
 );
 
-export const guildProjects = pgTable(
-  "guild_projects",
-  {
-    id: serial("id").primaryKey(),
-    guildId: varchar("guild_id", { length: 32 }).notNull(),
-    repositoryFullName: varchar("repository_full_name", { length: 300 }).notNull(),
-    /** "push" | "pull_request" | "issues" | "release" | "workflow" | "deployment" — empty = default set */
-    alertCategories: jsonb("alert_categories").$type<string[]>().notNull().default([]),
-    /** activity stream vs alerts-only */
-    notifyActivity: integer("notify_activity").notNull().default(0),
-    installationId: varchar("installation_id", { length: 32 }),
-    verified: integer("verified").notNull().default(0),
-    quietHoursStart: integer("quiet_hours_start"),
-    quietHoursEnd: integer("quiet_hours_end"),
-    addedBy: varchar("added_by", { length: 32 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("guild_projects_unique").on(t.guildId, t.repositoryFullName),
-    index("guild_projects_repo_idx").on(t.repositoryFullName),
-  ],
-);
-
 export const opportunityDeliveries = pgTable(
   "opportunity_deliveries",
   {
@@ -166,57 +142,6 @@ export const deadlineNotifications = pgTable(
       t.offsetMinutes,
     ),
     index("deadline_notifications_due_idx").on(t.scheduledFor, t.sentAt),
-  ],
-);
-
-/** Tenant-scoped workflow run metadata extracted from webhook events. */
-export const workflowRuns = pgTable(
-  "workflow_runs",
-  {
-    id: serial("id").primaryKey(),
-    repositoryFullName: varchar("repository_full_name", { length: 300 }).notNull(),
-    runId: varchar("run_id", { length: 32 }).notNull(),
-    workflowName: varchar("workflow_name", { length: 300 }),
-    headBranch: varchar("head_branch", { length: 300 }),
-    headSha: varchar("head_sha", { length: 64 }),
-    event: varchar("event", { length: 64 }),
-    status: varchar("status", { length: 32 }),
-    conclusion: varchar("conclusion", { length: 32 }),
-    htmlUrl: text("html_url"),
-    actor: varchar("actor", { length: 200 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("workflow_runs_unique").on(t.repositoryFullName, t.runId),
-    index("workflow_runs_conclusion_idx").on(t.conclusion),
-  ],
-);
-
-/** Project events cache — one row per processed GitHub event (deduped by fingerprint). */
-export const projectEvents = pgTable(
-  "project_events",
-  {
-    id: serial("id").primaryKey(),
-    guildId: varchar("guild_id", { length: 32 }).notNull(),
-    repositoryFullName: varchar("repository_full_name", { length: 300 }).notNull(),
-    eventType: varchar("event_type", { length: 64 }).notNull(),
-    /** dedup + idempotency across webhook replays */
-    eventFingerprint: varchar("event_fingerprint", { length: 80 }).notNull(),
-    deliveryId: varchar("delivery_id", { length: 64 }),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
-    announcedAt: timestamp("announced_at", { withTimezone: true }),
-    /** "activity" | "alert" — failed CI ⇒ alert */
-    severity: varchar("severity", { length: 12 }).notNull().default("activity"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("project_events_fingerprint_unique")
-      .on(t.guildId, t.eventFingerprint)
-      .where(sql`1=1`),
-    index("project_events_repo_time_idx").on(t.repositoryFullName, t.occurredAt),
-    index("project_events_guild_time_idx").on(t.guildId, t.occurredAt),
   ],
 );
 

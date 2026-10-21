@@ -1,25 +1,19 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { safeEquals } from "../core/security/crypto.js";
-import { toPrometheusText, metrics, gauge } from "../observability/metrics.js";
-import { verifyWebhook, type WebhookHeaders, MAX_WEBHOOK_BYTES } from "../projects/webhooks/verify.js";
-import { normalizeGithubEvent } from "../projects/webhooks/verify.js";
-import type { EventPipeline } from "../projects/events/pipeline.js";
+import { toPrometheusText } from "../observability/metrics.js";
 import type { Database } from "../database/client.js";
 import { sql } from "drizzle-orm";
-import { loadConfig } from "../core/config/env.js";
 import { registerIntegrationRoutes } from "./integrations.js";
 import { registerStaticPages } from "./pages.js";
 
 /**
  * HTTP surface:
- *   /healthz  – liveness (no secrets, no private info)
- *   /readyz   – readiness incl. DB ping
- *   /metrics  – Prometheus text (restricted via ADMIN_API_TOKEN or local)
- *   /api/webhooks/github
- *   /api/admin/* – bearer-token admin API (source management, exports)
+ *   /healthz  - liveness (no secrets, no private info)
+ *   /readyz   - readiness incl. DB ping
+ *   /metrics  - Prometheus text (restricted via ADMIN_API_TOKEN or local)
+ *   /api/admin/* - bearer-token admin API (source management, exports)
  */
 export interface ApiServices {
-  pipeline: EventPipeline | null;
   db: () => Database;
 }
 
@@ -62,63 +56,6 @@ export function buildApiServer(services: ApiServices): Express {
   app.get("/metrics", metricsGuard, (_req: Request, res: Response) => {
     res.type("text/plain; version=0.0.4").send(toPrometheusText());
   });
-
-  // ─── github webhooks ───────────────────────────────────────────────────────
-  app.post(
-    "/api/webhooks/github",
-    express.raw({ type: "*/*", limit: MAX_WEBHOOK_BYTES }),
-    async (req: Request, res: Response) => {
-      const started = Date.now();
-      metrics.eventsReceived();
-      try {
-        const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body ?? {}));
-        const headers = req.headers as unknown as WebhookHeaders;
-        const config = loadConfig();
-        const verification = verifyWebhook(rawBody, headers, config.GITHUB_WEBHOOK_SECRET);
-        if (!verification.ok) {
-          metrics.eventsProcessed(verification.code);
-          // 401 for signature problems; 500 for config problems
-          const httpStatus = verification.code === "missing-secret" ? 500 : 401;
-          res.status(httpStatus).json({ error: verification.code });
-          return;
-        }
-        if (!services.pipeline) {
-          res.status(503).json({ error: "pipeline unavailable" });
-          return;
-        }
-        const payload = JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>;
-        const normalized = normalizeGithubEvent(verification.event!, verification.deliveryId!, payload);
-        if (!normalized) {
-          metrics.eventsProcessed("ignored");
-          res.status(200).json({ status: "ignored" });
-          return;
-        }
-        const result = await services.pipeline.process(verification.deliveryId!, normalized);
-        if (result === "duplicate") {
-          metrics.eventsProcessed("duplicate");
-          res.status(200).json({ status: "duplicate" });
-          return;
-        }
-        // Discord fanout is executed by the registered handler (bot layer).
-        const fanout = (app as unknown as { fanoutHandlers: Array<FanoutHandler> }).fanoutHandlers;
-        for (const handler of fanout) {
-          await handler(result, normalized).catch((err: unknown) => {
-            if (process.env.LOG_LEVEL === "debug") console.error("fanout failed", err);
-          });
-        }
-        metrics.eventsProcessed("processed");
-        res.status(200).json({ status: "ok", correlationId: result.correlationId });
-      } catch (err) {
-        metrics.eventsProcessed("error");
-        if (process.env.LOG_LEVEL === "debug") console.error("webhook error", err);
-        res.status(500).json({ error: "processing failed" });
-      } finally {
-        gauge("orbit_webhook_latency_ms", Date.now() - started);
-      }
-    },
-  );
-
-  (app as unknown as { fanoutHandlers: FanoutHandler[] }).fanoutHandlers = [];
 
   // ─── admin API ─────────────────────────────────────────────────────────────
   const adminGuard: (req: Request, res: Response, next: NextFunction) => void = (req, res, next) => {
@@ -185,16 +122,7 @@ export function buildApiServer(services: ApiServices): Express {
   return app;
 }
 
-export type FanoutHandler = (
-  output: import("../projects/events/pipeline.js").PipelineOutput,
-  event: import("../projects/webhooks/verify.js").NormalizedGithubEvent,
-) => Promise<void>;
-
 export type SyncOneHandler = (sourceId: string) => Promise<unknown>;
-
-export function registerFanout(app: Express, handler: FanoutHandler): void {
-  (app as unknown as { fanoutHandlers: FanoutHandler[] }).fanoutHandlers.push(handler);
-}
 
 export function registerSyncHandler(app: Express, handler: SyncOneHandler): void {
   (app as unknown as { syncHandler?: SyncOneHandler }).syncHandler = handler;

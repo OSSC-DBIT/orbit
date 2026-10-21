@@ -8,7 +8,6 @@ import {
   guildChannels,
   guildFeatureSettings,
   guildPreferences,
-  guildProjects,
   users,
 } from "../../database/schema/index.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../core/errors/index.js";
@@ -436,71 +435,6 @@ export class TenantService {
       .insert(users)
       .values({ discordUserId, username: username ?? null })
       .onConflictDoUpdate({ target: users.discordUserId, set: { username: username ?? null } });
-  }
-
-  // ── monitored repositories (tenant scoped) ──────────────────────────────────
-
-  async upsertGuildProject(input: {
-    guildId: string;
-    repositoryFullName: string;
-    notifyActivity: number;
-    alertCategories: string[];
-    addedBy: string;
-  }): Promise<void> {
-    await this.scoped(input.guildId, (tx) =>
-      tx
-        .insert(guildProjects)
-        .values(input)
-        .onConflictDoUpdate({
-          target: [guildProjects.guildId, guildProjects.repositoryFullName],
-          set: {
-            notifyActivity: input.notifyActivity,
-            alertCategories: input.alertCategories,
-            addedBy: input.addedBy,
-          },
-        }),
-    );
-  }
-
-  async removeGuildProject(guildId: string, repositoryFullName: string): Promise<boolean> {
-    const rows = await this.scoped(guildId, (tx) =>
-      tx
-        .delete(guildProjects)
-        .where(and(eq(guildProjects.guildId, guildId), eq(guildProjects.repositoryFullName, repositoryFullName)))
-        .returning({ id: guildProjects.id }),
-    );
-    return rows.length > 0;
-  }
-
-  async listGuildProjects(guildId: string): Promise<Array<{ id: number; repositoryFullName: string; notifyActivity: number; alertCategories: string[]; verified: number }>> {
-    const rows = await this.scoped(guildId, (tx) =>
-      tx.select().from(guildProjects).where(eq(guildProjects.guildId, guildId)),
-    );
-    return rows.map((r) => ({
-      id: r.id,
-      repositoryFullName: r.repositoryFullName,
-      notifyActivity: r.notifyActivity,
-      alertCategories: r.alertCategories,
-      verified: r.verified,
-    }));
-  }
-
-  async findGuildProject(guildId: string, repoFullName: string) {
-    const rows = await this.scoped(guildId, (tx) =>
-      tx
-        .select()
-        .from(guildProjects)
-        .where(and(eq(guildProjects.guildId, guildId), eq(guildProjects.repositoryFullName, repoFullName)))
-        .limit(1),
-    );
-    return rows[0] ?? null;
-  }
-
-  async countGuildProjects(guildId: string): Promise<number> {
-    const rows = await this.scoped(guildId, (tx) =>
-      tx.select({ count: sql<number>`count(*)::int` }).from(guildProjects).where(eq(guildProjects.guildId, guildId)),
-    );
-    return rows[0]?.count ?? 0;
   }
 }
 

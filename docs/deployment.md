@@ -95,7 +95,7 @@ server {
   server_name orbit.example.com;
   location / {
     proxy_pass http://127.0.0.1:3000;
-    # GitHub webhook bodies: larger than json defaults
+    # admin API uploads: larger than json defaults
     client_max_body_size 10m;
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header Host $host;

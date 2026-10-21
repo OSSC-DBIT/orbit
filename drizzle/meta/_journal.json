@@ -8,6 +8,13 @@
       "when": 1792491382508,
       "tag": "0000_misty_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792559143977,
+      "tag": "0001_simple_skaar",
+      "breakpoints": true
     }
   ]
 }

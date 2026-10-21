@@ -2,14 +2,14 @@
 
 Orbit is a production oriented, multi tenant Discord bot and platform that discovers,
 normalizes, deduplicates and delivers developer opportunities (hackathons, internships,
-jobs, innovation challenges) and monitors GitHub projects for CI failures.
+jobs, innovation challenges).
 
 One bot instance serves many Discord guilds (tenants). Every record and every config
 meets a guild id. Admins of one guild can never see or change another guild's data,
 enforced both by row level security in PostgreSQL and by service layer checks.
 
 - Stack: Node.js 22 LTS, TypeScript (strict), discord.js 14, Express 5, PostgreSQL 16, Drizzle ORM
-- AI: optional Groq summaries and CI diagnosis; the app is fully functional without AI and never fails because of it
+- AI: optional Groq summaries; the app is fully functional without AI and never fails because of it
 - Deployment: Docker Compose (app + postgres), self hosted on a single Ubuntu box
 - Timezones: IST first (Asia/Kolkata default) with per guild overrides
 
@@ -21,9 +21,8 @@ enforced both by row level security in PostgreSQL and by service layer checks.
 | Delivery | Instant posts, digests (tenant local hours), volume capped with daily quota |
 | No repetition | Content fingerprinting + unique (guild, opportunity, channel, kind) deliveries |
 | Sources | 6 connectors with health tracking (see `docs/sources.md`) |
-| GitHub | GitHub App auth, signed webhooks, CI failure alerts, activity feeds, workflow diagnostics |
 | Ops | `/api/integrations/health` report, `/api/integrations/logs` failure feed, Prometheus metrics |
-| Trust | Audit log, admin gating, secret encryption at rest, log redaction, backup scripts |
+| Trust | Audit log, admin gating, log redaction, backup scripts |
 
 ## Quick start (Docker Compose)
 
@@ -48,10 +47,9 @@ Config: `/features` `/channels` `/preferences` `/digest` `/sources`
 
 Opportunities: `/opportunities` (`browse`, `detail`, `search`, `deadline`, `subscribe`, `unsubscribe`, category variants)
 
-Projects: `/project add` `/project remove` `/project list` `/project status` `/project logs` `/project report` `/project alerts` `/project health`
-
-All config and project mutations are admin gated (`Administrator`, `Manage Server`,
-or a principal listed via `/authorized-roles`). Authorization is strictly per guild.
+All config mutations are admin gated (`Administrator`, `Manage Server`,
+or a principal listed via `/authorized-roles`). Authorization is strictly per guild;
+everyone can browse opportunities without any role.
 
 ## The 3-4/day sync, no repetition
 
@@ -78,7 +76,7 @@ curl -H "Authorization: Bearer $ORBIT_TOKEN" https://orbit.example.com/api/integ
 
 Returns app, version, generatedAt, status (healthy / degraded / unhealthy),
 checks (database latency, scheduler counts, failures, per source health, delivery
-pulse, webhook pulse, catalog stats, tenant count) and warnings.
+pulse, catalog stats, tenant count) and warnings.
 
 Pull recent structured failures and log events:
 
@@ -88,7 +86,7 @@ curl -H "Authorization: Bearer $ORBIT_TOKEN" \
 ```
 
 Events are assembled from persisted state (scheduler failures, source errors,
-delivery failures, webhook errors), never from raw stdout.
+delivery failures), never from raw stdout.
 
 ## Sources
 
@@ -100,9 +98,9 @@ not integrated because their public endpoints are dead.
 ## Documentation
 
 - `docs/production-guide.md` - the full setup: Cloudflare tunnel, Discord
-  URLs, GitHub App URLs, every credential
+  URLs, every credential
 - `docs/architecture.md` - data flow, RLS design, scheduler, dedup chain
-- `docs/security.md` - threat model, secrets, webhook verification, redaction
+- `docs/security.md` - threat model, secrets, redaction
 - `docs/deployment.md` - machine prep, compose lifecycle, backups, upgrades
 - `docs/operations.md` - runbook: health, jobs, incidents, capacity
 - `docs/sources.md` - source connectors in detail

@@ -6,7 +6,7 @@ Last updated: October 2026
 
 This instance is a self hosted deployment of Orbit, open source software
 released under the MIT license (see `LICENSE`), maintained by OSSC DBIT,
-Bangalore. Using the Discord bot, the integration API or the webhooks of
+Bangalore. Using the Discord bot or the integration API of
 this instance means you agree to these terms. The same text is served
 publicly at `/terms` on the instance host.
 

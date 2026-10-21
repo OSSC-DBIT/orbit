@@ -12,8 +12,7 @@ proxy alternative), `docs/operations.md` (runbook) and `docs/security.md`
 ## 0. Staging now, production later
 
 The current deployment is **staging**: tunnel name `orbit-staging`, hostname
-`orbit-staging.webuildnow.in`, and `https://orbit-staging.webuildnow.in`
-as `PUBLIC_WEBHOOK_URL`. Everything in this guide assumes that hostname.
+`orbit-staging.webuildnow.in`. Everything in this guide assumes that hostname.
 When you promote to production later, create a second tunnel
 (`orbit`) with hostname `orbit.webuildnow.in`, point a new `.env` at it, and
 only URLs and tokens change; no code path differs between the two.
@@ -22,11 +21,11 @@ only URLs and tokens change; no code path differs between the two.
 
 The `app` container runs migrations (including tenant row level security) and
 then boots the Discord gateway, the durable Postgres scheduler and the HTTP
-API (health, metrics, GitHub webhooks, admin and integration APIs) in one
+API (health, metrics, admin and integration APIs) in one
 process. The `postgres:16` container is created with a dedicated
 NOSUPERUSER application role by an init script; the app never connects as a
-superuser. The optional `tunnel` container runs `cloudflared`, so GitHub can
-reach `https://<your-host>/api/webhooks/github` with zero inbound ports
+superuser. The optional `tunnel` container runs `cloudflared`, so the app
+gets a public HTTPS URL with zero inbound ports
 opened on the host.
 
 ## 2. Prerequisites
@@ -37,8 +36,6 @@ opened on the host.
 - Docker Engine 24+ with the compose plugin: see `docs/deployment.md`
   section 1 for exact commands.
 - Discord account (to create the bot application).
-- GitHub account with permission to create GitHub Apps for your
-  organization or user.
 
 ## 3. Cloudflare tunnel (the public URL)
 
@@ -76,16 +73,10 @@ cp .env.example .env
 | `POSTGRES_PASSWORD` | `openssl rand -hex 16` | postgres superuser (host admin + backups only) |
 | `POSTGRES_APP_PASSWORD` | `openssl rand -hex 16` | the orbit application role the app logs in as |
 | `DATABASE_URL` | compose builds it | edit only for bare metal; format `postgresql://orbit:<POSTGRES_APP_PASSWORD>@<host>:5432/orbit` |
-| `GITHUB_APP_ID` | GitHub App settings page | numeric id from the "app Settings" URL header |
-| `GITHUB_APP_PRIVATE_KEY` | GitHub App settings > Private keys > Generate | paste PEM contents, or keep the file and set the path variant instead |
-| `GITHUB_APP_PRIVATE_KEY_PATH` | you | preferred on disk; only one of the two is needed |
-| `GITHUB_WEBHOOK_SECRET` | `openssl rand -hex 32` | must match the GitHub App "Webhook secret" field exactly |
-| `GITHUB_WEBHOOK_PATH` | default | `/api/webhooks/github` |
-| `PUBLIC_WEBHOOK_URL` | your tunnel hostname | `https://orbit.<your-domain>`, no trailing slash |
 | `CLOUDFLARE_TUNNEL_TOKEN` | section 3 | empty disables the tunnel profile |
 | `ADMIN_API_TOKEN` | `openssl rand -hex 32` | `/api/admin/*` bearer token |
 | `INTEGRATION_API_TOKEN` | `openssl rand -hex 32` | `/api/integrations/*` bearer token for your own apps |
-| `APP_ENCRYPTION_KEY` | `openssl rand -base64 32` | AES-256-GCM key for secrets stored in the DB |
+| `APP_ENCRYPTION_KEY` | `openssl rand -base64 32` | optional; reserved for future credential at rest |
 | `GROQ_API_KEY` | optional, console.groq.com | without it everything still works, minus AI summaries |
 | `AI_MONTHLY_REQUEST_BUDGET` | you | hard monthly cap on AI calls |
 | `DEFAULT_TIMEZONE` | you | `Asia/Kolkata` (IST first) unless a guild overrides it |
@@ -152,46 +143,7 @@ Backups and restore are covered in `docs/deployment.md`; cron them.
 7. After first boot keep `DISCORD_REGISTER_COMMANDS=1` once; commands
    appear globally (may take a few minutes on Discord's side).
 
-## 7. GitHub App URLs and permissions
-
-Create it at https://github.com/settings/apps/new:
-
-| GitHub App field | Value |
-| --- | --- |
-| GitHub App name | Orbit CI (or your choice) |
-| Homepage URL | `https://orbit-staging.webuildnow.in` |
-| Webhook: active | yes |
-| Webhook URL | `https://orbit-staging.webuildnow.in/api/webhooks/github` |
-| Webhook secret | value of `GITHUB_WEBHOOK_SECRET` |
-| App slug | the URL path part after `github.com/apps`; set as `GITHUB_APP_SLUG` so `/project add` emits the one click install link |
-| SSL verification | enabled |
-| Permissions: Actions | Read-only |
-| Permissions: Checks | Read-only |
-| Permissions: Commit statuses | Read-only |
-| Permissions: Contents | Read-only |
-| Permissions: Pull requests | Read-only |
-| Permissions: Metadata | Read-only (auto) |
-| Permissions: Organization administration | none |
-| Events to subscribe | `push`, `pull_request`, `issues`, `release`, `workflow_run`, `check_run`, `deployment_status`, `installation` |
-| Where can this app be installed | any account, or restrict to your org |
-
-After creation:
-
-1. App settings > General > about: copy the App ID into `GITHUB_APP_ID`.
-2. App settings > General > Private keys > Generate a private key > save the
-   downloaded `.pem` as `secrets/github-app-key.pem` beside the compose stack
-   (git ignored). The stack mounts `./secrets` read-only at `/run/secrets`,
-   so `GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app-key.pem` resolves
-   inside the container. Alternatively paste the contents into
-   `GITHUB_APP_PRIVATE_KEY` (PEM files never go into git).
-3. App settings > Install App > install on the repositories you monitor.
-   Orbit auto-verifies the association when the first webhook event arrives.
-
-The webhook passes verification from the very first ping because
-`GITHUB_WEBHOOK_SECRET` matches; every delivery id is stored, so GitHub
-retries (redelivery) are deduplicated.
-
-## 8. First boot
+## 7. First boot
 
 ```bash
 docker compose --profile tunnel up -d --build
@@ -205,7 +157,7 @@ Success looks like, in order:
 3. `discord login` success (or retry logs if the token is bad)
 4. `http surface listening`
 
-## 9. Run key checks
+## 8. Run key checks
 
 ```bash
 # host only (ports are localhost bound)
@@ -221,18 +173,15 @@ Expect `"status":"healthy"` once the app, DB, scheduler and sources have
 settled. Guild setup inside Discord: run `/setup` in your server, then
 `/features`, `/channels`, `/preferences`.
 
-## 10. Verification checklist
+## 9. Verification checklist
 
 - [ ] `docker compose ps` shows app, postgres healthy (tunnel too if enabled)
 - [ ] `/healthz` and `/readyz` return 200
 - [ ] `/api/integrations/health` returns `status: healthy` with a DB latency
 - [ ] `opportunity_sources` rows show recent `last_run_at`
-- [ ] GitHub App page shows green webhook delivery (ping)
-- [ ] `/project add repo:owner/name` followed by a dummy commit shows the
-      pipeline fanout in `docker compose logs app`
 - [ ] Backups cron is installed (`scripts/backup.sh`, see deployment doc)
 
-## 11. Upgrade and rotate
+## 10. Upgrade and rotate
 
 ```bash
 git pull
@@ -241,17 +190,14 @@ docker compose --profile tunnel up -d
 ```
 
 Migrations run automatically at boot and are idempotent. Rotating secrets:
-edit `.env`, then `docker compose up -d` (recreate). Rotate the GitHub App
-webhook secret in both places, tokens via the same env vars.
+edit `.env`, then `docker compose up -d` (recreate); tokens rotate via the same env vars.
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | First checks |
 | --- | --- |
 | `discord login failed; retrying` in logs | wrong/expired `DISCORD_BOT_TOKEN`; HTTP on, gateway retries |
 | `command registration failed` | token/app id mismatch, or `applications.commands` not registered for this app |
-| webhook 401 | `GITHUB_WEBHOOK_SECRET` differs from the GitHub App field |
-| webhook 404 | `PUBLIC_WEBHOOK_URL` lacks `/api/webhooks/github` or tunnel hostname mismatch |
 | DB error 42501 (row level security) | app is connecting as superuser; use the orbit role (section 5) |
 | tunnel offline | token expired or revoked; `docker compose logs tunnel` |
 | sources stale in integrations report | upstream API failing or egress blocked; per source `lastError` in the report |

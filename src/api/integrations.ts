@@ -16,7 +16,7 @@ import { safeEquals } from "../core/security/crypto.js";
  * The health report is a single self-contained JSON document designed for
  * external dashboards, cron monitors or status pages:
  *   { status: healthy|degraded|unhealthy, database, scheduler,
- *     sources, deliveries, webhooks, catalog, jobs }
+ *     sources, deliveries, catalog, jobs }
  */
 
 export interface OrchestratedProbe {
@@ -27,7 +27,7 @@ export interface OrchestratedProbe {
 interface LogEvent {
   ts: string;
   severity: "error" | "warn" | "info";
-  origin: "jobs" | "sources" | "webhooks" | "deliveries" | "audit";
+  origin: "jobs" | "sources" | "deliveries" | "audit";
   message: string;
   context: Record<string, unknown>;
 }
@@ -69,7 +69,7 @@ export async function buildIntegrationReport(db: Database): Promise<{
     }
   };
 
-  const [schedulerStatuses, failedJobs, pendingAges, sources, deliveries24h, webhooks24h, catalog, guildCount] =
+  const [schedulerStatuses, failedJobs, pendingAges, sources, deliveries24h, catalog, guildCount] =
     await Promise.all([
       one(db.execute(sql`select status, count(*)::int as n from scheduled_jobs group by status`) as unknown as Promise<{ rows: Array<{ status: string; n: number }> }>),
       one(
@@ -93,11 +93,6 @@ export async function buildIntegrationReport(db: Database): Promise<{
                      sum(case when failed = 1 then 1 else 0 end)::int as failed
               from opportunity_deliveries where delivered_at > now() - interval '24 hours'`,
         ) as unknown as Promise<{ rows: Array<{ delivered: number; failed: number }> }>,
-      ),
-      one(
-        db.execute(
-          sql`select status, count(*)::int as n from github_webhook_deliveries where received_at > now() - interval '24 hours' group by status`,
-        ) as unknown as Promise<{ rows: Array<{ status: string; n: number }> }>,
       ),
       one(
         db.execute(
@@ -127,8 +122,6 @@ export async function buildIntegrationReport(db: Database): Promise<{
   if (failingSources.length) {
     warnings.push(`${failingSources.length} source(s) failing: ${failingSources.slice(0, 5).map((s) => String(s.id)).join(", ")}`);
   }
-  const webhookErrors = webhooks24h.find((r) => r.status === "error");
-  if (webhookErrors && webhookErrors.n > 0) warnings.push(`${webhookErrors.n} webhook deliveries errored in 24h`);
   const deliveryFailures = deliveries24h[0]?.failed ?? 0;
   if (deliveryFailures > 0) warnings.push(`${deliveryFailures} failed deliveries in 24h`);
 
@@ -166,7 +159,6 @@ export async function buildIntegrationReport(db: Database): Promise<{
           failed: deliveryFailures,
         },
       },
-      webhooks: { last24hByStatus: Object.fromEntries(webhooks24h.map((r) => [r.status, r.n])) },
       catalog: {
         total: catalog[0]?.total ?? 0,
         open: catalog[0]?.open ?? 0,
@@ -245,25 +237,6 @@ export async function gatherLogEvents(
       origin: "deliveries",
       message: `delivery failed for opportunity ${row.opportunity_id}: ${row.error}`,
       context: { guildId: row.guild_id, opportunityId: row.opportunity_id },
-    });
-  }
-
-  const webhookRows = await db.execute(
-    sql`select delivery_id, repository_full_name, event_type, status, error, received_at
-          from github_webhook_deliveries
-         where status in ('error','received') and received_at > now() - (${minutes} || ' minutes')::interval
-         order by received_at desc
-         limit ${limit}`,
-  );
-  for (const row of (webhookRows as unknown as { rows: Array<Record<string, unknown>> }).rows) {
-    const severity = row.status === "error" ? "error" : "warn";
-    if (levelErrorOnly && severity !== "error") continue;
-    events.push({
-      ts: new Date(String(row.received_at)).toISOString(),
-      severity,
-      origin: "webhooks",
-      message: row.error ? `webhook ${row.event_type} ${row.status}: ${row.error}` : `webhook ${row.event_type} unprocessed`,
-      context: { deliveryId: row.delivery_id, repo: row.repository_full_name },
     });
   }
 

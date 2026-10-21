@@ -52,8 +52,6 @@ const STATUS_LABEL = "status";
 
 /** Standard counters for this app. */
 export const metrics = {
-  eventsReceived: () => incr("orbit_github_webhooks_total"),
-  eventsProcessed: (result: string) => incr("orbit_github_events_total", { [STATUS_LABEL]: result }),
   jobsOutcome: (jobType: string, outcome: string) => incr("orbit_jobs_total", { job: jobType, [STATUS_LABEL]: outcome }),
   deliveries: (kind: string, outcome: string) => incr("orbit_deliveries_total", { kind, [STATUS_LABEL]: outcome }),
   opportunityCreated: (sourceId: string) => incr("orbit_opportunities_total", { source: sourceId, [STATUS_LABEL]: "created" }),

@@ -18,20 +18,11 @@ import { createConnector } from "./opportunities/connectors/index.js";
 import { AiEngine } from "./ai/services/engine.js";
 import { Scheduler } from "./jobs/scheduler.js";
 import { registerJobHandlers, recurringIntervals } from "./jobs/handlers.js";
-import { buildApiServer, registerFanout, registerSyncHandler } from "./api/server.js";
-import { EventPipeline } from "./projects/events/pipeline.js";
-import { ReportService } from "./projects/reporting/report-service.js";
-import { WorkflowDiagnostics } from "./projects/workflows/diagnostics.js";
-import { GitHubApi } from "./projects/github/api.js";
-import { loadGitHubAppCredentials } from "./projects/github/auth.js";
-import { TokenStore } from "./projects/github/token-store.js";
+import { buildApiServer, registerSyncHandler } from "./api/server.js";
 import { startDiscordClient, registerCommands } from "./bot/client.js";
 import { DiscordTargetResolver } from "./bot/channel-resolver.js";
 import type { CommandDeps } from "./bot/commands/context.js";
-import { metrics, gauge } from "./observability/metrics.js";
-import { buildProjectEmbed, embedToPayload } from "./bot/github-notify.js";
-import type { NormalizedGithubEvent } from "./projects/webhooks/verify.js";
-import type { PipelineOutput } from "./projects/events/pipeline.js";
+import { gauge } from "./observability/metrics.js";
 
 async function main(): Promise<void> {
   const config = loadConfig(); // fails fast with actionable message
@@ -44,28 +35,6 @@ async function main(): Promise<void> {
   const ai = AiEngine.fromEnv();
   const collector = new Collector(db);
   const delivery = new DeliveryService(db, null); // resolver attaches post-gateway
-  const pipeline = new EventPipeline(db);
-  const reports = new ReportService(db);
-
-  const credentials = loadGitHubAppCredentials(config);
-  const tokenStore = credentials ? new TokenStore(db) : null;
-  const gitHubApi = new GitHubApi(
-    async (repoFullName) => {
-      // per-repo installation mapping is learned from webhook events; guild
-      // projects store the installation that delivered their first event
-      const rows = await db.execute(
-        sql`select installation_id from guild_projects where repository_full_name = ${repoFullName} limit 1`,
-      );
-      const rows0 = (rows as unknown as { rows: Array<{ installation_id: string | null }> }).rows;
-      return rows0[0]?.installation_id ?? null;
-    },
-    async (installationId) => {
-      if (!credentials || !tokenStore) return null;
-      return tokenStore.tokenFor(installationId, credentials);
-    },
-    credentials,
-  );
-  const diagnostics = credentials ? new WorkflowDiagnostics(gitHubApi, ai) : null;
 
   const deps: CommandDeps = {
     tenant,
@@ -74,8 +43,6 @@ async function main(): Promise<void> {
     db,
     ai,
     collector,
-    diagnostics,
-    reports,
   };
 
   // Discord gateway
@@ -107,31 +74,7 @@ async function main(): Promise<void> {
 
   // HTTP API
   const app = buildApiServer({
-    pipeline,
     db: () => db,
-  });
-
-  registerFanout(app, async (output: PipelineOutput, event: NormalizedGithubEvent) => {
-    const embed = buildProjectEmbed(event, (await tenant.getGuild(output.targets[0]?.guildId ?? ""))?.timezone ?? "Asia/Kolkata");
-    for (const target of output.targets) {
-      const kind = target.severity === "alert" ? "github_alerts" : "github_activity";
-      const channel = await resolver.resolve(kind, target.guildId);
-      if (!channel) continue;
-      try {
-        await channel.send({ embeds: [embedToPayload(embed)], allowedMentions: { parse: [] } });
-        metrics.deliveries("github", "delivered");
-        await db.execute(sql`
-          update project_events
-          set announced_at = now()
-          where guild_id = ${target.guildId} and repository_full_name = ${event.repoFullName}
-            and occurred_at >= now() - interval '2 hours' and event_type = ${event.eventType}
-            and announced_at is null
-        `);
-      } catch (err) {
-        metrics.deliveries("github", "failed");
-        log.warn({ guildId: target.guildId, error: err instanceof Error ? err.message : String(err) }, "github fanout failed");
-      }
-    }
   });
 
   registerSyncHandler(app, async (sourceId: string) => {

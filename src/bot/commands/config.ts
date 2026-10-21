@@ -30,7 +30,6 @@ export function configCommands(): OrbitCommand[] {
               .setRequired(true)
               .addChoices(
                 { name: "opportunities", value: "opportunities" },
-                { name: "github_projects", value: "github_projects" },
                 { name: "deadline_alerts", value: "deadline_alerts" },
                 { name: "digest", value: "digest" },
                 { name: "ai_summaries", value: "ai_summaries" },
@@ -49,7 +48,6 @@ export function configCommands(): OrbitCommand[] {
               .setRequired(true)
               .addChoices(
                 { name: "opportunities", value: "opportunities" },
-                { name: "github_projects", value: "github_projects" },
                 { name: "deadline_alerts", value: "deadline_alerts" },
                 { name: "digest", value: "digest" },
                 { name: "ai_summaries", value: "ai_summaries" },
@@ -95,8 +93,6 @@ export function configCommands(): OrbitCommand[] {
               .setRequired(true)
               .addChoices(
                 { name: "opportunities", value: "opportunities" },
-                { name: "github_alerts", value: "github_alerts" },
-                { name: "github_activity", value: "github_activity" },
                 { name: "digest", value: "digest" },
                 { name: "deadlines", value: "deadlines" },
                 { name: "infrastructure", value: "infrastructure" },
@@ -118,8 +114,6 @@ export function configCommands(): OrbitCommand[] {
               .setRequired(true)
               .addChoices(
                 { name: "opportunities", value: "opportunities" },
-                { name: "github_alerts", value: "github_alerts" },
-                { name: "github_activity", value: "github_activity" },
                 { name: "digest", value: "digest" },
                 { name: "deadlines", value: "deadlines" },
                 { name: "infrastructure", value: "infrastructure" },

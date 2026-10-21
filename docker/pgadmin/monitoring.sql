@@ -26,10 +26,7 @@ FROM scheduled_jobs
 WHERE status = 'pending'
 UNION ALL
 SELECT 'migrations applied', 'ok', count(*)::text
-FROM _orbit_migrations
-UNION ALL
-SELECT 'github webhook deliveries', 'info (awaiting app install)', count(*)::text
-FROM github_webhook_deliveries;
+FROM _orbit_migrations;
 
 -- 1) Source scoreboard: how many rows each source has, their live state
 --    and when the collector last touched it.
@@ -85,23 +82,14 @@ GROUP BY guild_id
 ORDER BY deliveries DESC
 LIMIT 25;
 
--- 6) GitHub webhook trail: recent deliveries and any errors. Zero rows
---    here means no app install received or webhook not yet reachable.
-SELECT event_type, repository_full_name, status,
-       received_at AT TIME ZONE 'Asia/Kolkata' AS received_ist,
-       left(coalesce(error, ''), 60) AS error_head
-FROM github_webhook_deliveries
-ORDER BY received_at DESC
-LIMIT 20;
-
--- 7) Scheduled job queue: pending vs terminal states, and who is next.
+-- 6) Scheduled job queue: pending vs terminal states, and who is next.
 SELECT job_type, status, count(*) AS jobs,
        min(run_at) AT TIME ZONE 'Asia/Kolkata' AS next_run_ist
 FROM scheduled_jobs
 GROUP BY job_type, status
 ORDER BY job_type, status;
 
--- 8) Table sizes: where the disk grows.
+-- 7) Table sizes: where the disk grows.
 SELECT relname AS table,
        pg_size_pretty(pg_total_relation_size('public.' || relname)) AS total_size
 FROM pg_stat_user_tables

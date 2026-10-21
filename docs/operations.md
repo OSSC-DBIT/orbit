@@ -39,12 +39,11 @@ Interpreting the fields:
   `consecutiveFailures`; a growing failure streak means the upstream API is
   degraded or egress is blocked
 - `checks.deliveries.last24h`: delivered vs failed message outcomes
-- `checks.webhooks.last24hByStatus`: GitHub webhook outcome histogram
 - `checks.catalog`: opportunity totals (open, closingSoon, withDeadline)
 - `warnings[]`: non fatal observations (e.g. a source with a failure streak)
 
 `GET /api/integrations/logs?since_minutes=&level=&limit=` (limit capped at
-300) returns timestamped events from jobs, sources, deliveries and webhooks;
+300) returns timestamped events from jobs, sources and deliveries;
 it reads persisted state, never raw stdout, so it survives log rotation.
 
 ## 3. Scheduler
@@ -83,7 +82,6 @@ warn on purpose: the HTTP plane stays up while the gateway reconnects).
 | --- | --- |
 | integrations report `unhealthy` (db unreachable) | `docker compose ps` postgres; restart; check disk full |
 | `degraded` with source failure streaks | read `lastError`; if upstream API died, mark the source disabled in `opportunity_sources` and investigate; Orbit keeps running with the remaining sources |
-| webhook deliveries all `fail` | verify tunnel up: `docker compose logs tunnel`; secret mismatch gives 401 and GitHub retries |
 | digest never fires | guild timezone set to UTC means "not configured" (falls back to deploy default); check `digest_hours` and the digest channel binding |
 | too many posts per channel | lower quota via guild preferences; deliveries are quota capped daily and deduplicated per (channel, kind) |
 | AI suddenly absent | quota exhausted or provider down by design; product degrades without error spam |

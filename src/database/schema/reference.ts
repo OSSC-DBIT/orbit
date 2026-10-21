@@ -13,8 +13,7 @@ import {
 
 /**
  * Reference / registry tables (not tenant-scoped):
- * users, opportunity sources + tags, github installations & webhook deliveries,
- * infrastructure hosts and the job queue.
+ * users, opportunity sources + tags, infrastructure hosts and the job queue.
  */
 
 export const users = pgTable("users", {
@@ -67,40 +66,6 @@ export const opportunityTags = pgTable(
   (t) => [
     uniqueIndex("opportunity_tags_unique").on(t.tag, t.opportunityId),
     index("opportunity_tags_opportunity_idx").on(t.opportunityId),
-  ],
-);
-
-export const githubInstallations = pgTable(
-  "github_installations",
-  {
-    id: serial("id").primaryKey(),
-    installationId: varchar("installation_id", { length: 32 }).notNull(),
-    accountLogin: varchar("account_login", { length: 300 }).notNull(),
-    /** AES-256-GCM encrypted when APP_ENCRYPTION_KEY is configured. */
-    accessTokenEnc: text("access_token_enc"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
-    permissions: jsonb("permissions").$type<Record<string, string>>().notNull().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("github_installations_unique").on(t.installationId)],
-);
-
-export const githubWebhookDeliveries = pgTable(
-  "github_webhook_deliveries",
-  {
-    id: serial("id").primaryKey(),
-    deliveryId: varchar("delivery_id", { length: 64 }).notNull(),
-    repositoryFullName: varchar("repository_full_name", { length: 300 }).notNull(),
-    eventType: varchar("event_type", { length: 64 }).notNull(),
-    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-    processedAt: timestamp("processed_at", { withTimezone: true }),
-    status: varchar("status", { length: 24 }).notNull().default("received"),
-    error: text("error"),
-  },
-  (t) => [
-    uniqueIndex("github_webhook_deliveries_unique").on(t.deliveryId),
-    index("github_webhook_deliveries_repo_idx").on(t.repositoryFullName),
   ],
 );
 

@@ -78,7 +78,7 @@ export async function httpFetch(url: string, options: FetchOptions = {}): Promis
         response = await fetch(url, {
           signal: controller.signal,
           headers: {
-            "user-agent": "OrbitBot/0.1 (+https://github.com/orbit-intel)",
+            "user-agent": "OrbitBot/0.1 (+https://github.com/OSSC-DBIT/orbit)",
             accept: "application/json, text/xml, application/xml;q=0.9, text/html;q=0.8, */*;q=0.5",
             ...headers,
           },

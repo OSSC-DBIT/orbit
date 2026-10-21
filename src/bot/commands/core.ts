@@ -11,7 +11,7 @@ import { getSourceHealth } from "./source-info.js";
 function helpEmbed(): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle("Orbit: developer opportunities + project monitoring")
+    .setTitle("Orbit: developer opportunities for Indian students")
     .setDescription(
       [
         "Orbit is free for every guild: no premium tier, no locked features.",
@@ -21,17 +21,17 @@ function helpEmbed(): EmbedBuilder {
         "`/opportunity id:<id>` full detail - `/search query:<text>` - `/deadline` upcoming deadlines",
         "`/subscribe` `/unsubscribe` personal deadline interest",
         "",
-        "**Configuration (admins)**",
+        "**Configuration (admins only)**",
         "`/setup` guided configuration - `/status` tenant snapshot",
         "`/features` enable or disable capability groups",
-        "`/channels` map channel kinds (opportunities, digest, deadlines, projects, project_alerts, audit)",
+        "`/channels` map channel kinds (opportunities, digest, deadlines, infrastructure)",
         "`/preferences` keyword and filter tuning - `/digest` digest schedule",
         "`/sources` view and manage opportunity sources - `/timezone` set guild timezone",
         "`/authorized-roles` add or remove admins by role or user - `/audit-log` recent actions",
         "",
-        "**Project monitoring (GitHub Events webhooks)**",
-        "`/project add` `/project list` `/project status` `/project remove`",
-        "`/project logs` recent CI failures - `/project report` weekly digest - `/project alerts` setup - `/project health`",
+        "Setup and configuration are restricted to server administrators and",
+        "principals authorized via /authorized-roles. Everyone can browse with the",
+        "opportunity commands above.",
       ].join("\n"),
     )
     .setFooter({ text: "All data UTC storage, tenant timezone display" });
@@ -83,9 +83,7 @@ export function coreCommands(): OrbitCommand[] {
               "`/channels set kind:opportunities channel:#feeds` - instant announcements",
               "`/channels set kind:digest channel:#daily-digest` - scheduled recap",
               "`/channels set kind:deadlines channel:#deadlines` - pre-deadline reminders",
-              "`/channels set kind:projects channel:#repo-activity` - GitHub activity",
-              "`/channels set kind:project_alerts channel:#ci-failures` - CI failures and alerts",
-              "`/channels set kind:audit channel:#mod-audit` - admin action log mirror",
+              "`/channels set kind:infrastructure channel:#ops` - deployment watchdog feed",
               "",
               "Each kind can also carry a mention role: `/channels set kind:... mention:@role`.",
             ].join("\n"),
@@ -112,7 +110,7 @@ export function coreCommands(): OrbitCommand[] {
           embed.setDescription(
             [
               "`/features list` - capability groups and states.",
-              "`/features enable kind:opportunities` (also digest, deadlines, projects, audit).",
+              "`/features enable kind:opportunities` (also deadline_alerts, digest, ai_summaries, infrastructure_alerts).",
               "`/features disable kind:digest` to pause without deleting config.",
             ].join("\n"),
           );
@@ -143,12 +141,11 @@ export function coreCommands(): OrbitCommand[] {
     handler: async (ctx) => {
       await requireAdmin(ctx);
       const { tenant } = ctx.deps;
-      const [guild, features, channels, prefs, projectCount, health] = await Promise.all([
+      const [guild, features, channels, prefs, health] = await Promise.all([
         tenant.getGuild(ctx.guildId),
         tenant.getFeatures(ctx.guildId),
         tenant.getChannels(ctx.guildId),
         tenant.getPreferences(ctx.guildId),
-        tenant.countGuildProjects(ctx.guildId),
         getSourceHealth(ctx.deps.db),
       ]);
 
@@ -181,10 +178,7 @@ export function coreCommands(): OrbitCommand[] {
             ].join("\n"),
             inline: false,
           },
-          { name: "Monitored projects", value: String(projectCount), inline: true },
-          {
-            name: "Source health",
-            value: health
+          { name: "Source health", value: health
               .map(
                 (h) =>
                   `${h.consecutiveFailures > 0 && !h.lastSuccessAt ? "🔴" : "🟢"} ${h.id}${h.lastError ? ` (${h.lastError.slice(0, 60)})` : ""}`,

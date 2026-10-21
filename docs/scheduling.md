@@ -48,7 +48,7 @@ computed run_at) wins, so boot jitter never delays a job.
 | `lifecycle_sweep` | expires or closes past listings (none stays stale in the catalog) | every hour |
 | `deadline_sweep` | materializes per-tenant deadline reminders and sends ones that fall due (reminder offsets default 72h / 24h / 6h) | every 15 minutes |
 | `digest_dispatch` | sends the daily digest to a guild when its local hour matches its `digest_hours` (guild timezone, IST by default) | checks every hour |
-| `retention_cleanup` | purges webhook deliveries, project events and audit logs older than 60 days | every 24 hours |
+| `retention_cleanup` | purges audit logs and finished job rows older than `RETENTION_DAYS` (default 90) | every 24 hours |
 
 Non-recurring rows: one-shots via `scheduleOnce()` (idempotency key passed by
 the caller), for example deadline reminder inserts. Admin sync endpoints run
@@ -122,16 +122,16 @@ status, the last 20 failed jobs (one row per: job_type, attempts,
 max_attempts, last_error, updated_at), a stuck-pending count
 (`pending` with `run_at` older than 1 h: the "worker is down" signal),
 per-source health (enabled, interval_minutes, last_run_at, last_success_at,
-last_error, consecutive_failures), 24 h delivery counts, 24 h webhook
-statuses, catalog totals and the active guild count.
+last_error, consecutive_failures), 24 h delivery counts, catalog totals and
+the active guild count.
 
 Status derivation (also in `buildIntegrationReport`):
 
 - `degraded` immediately if more than 20 failed deliveries in 24 h or more
   than 20 stuck pending jobs.
 - otherwise `degraded` with a human warning for: any failed job, any stuck
-  pending, any source failing with zero successes so far, webhook errors in
-  24 h, delivery failures in 24 h.
+  pending, any source failing with zero successes so far, delivery failures
+  in 24 h.
 - `healthy` clears the warnings list (it is for alarms, not history).
 
 Last 20 failed jobs without the full report:
@@ -153,7 +153,7 @@ curl -s -H "Authorization: Bearer $ADMIN_API_TOKEN" http://127.0.0.1:3000/metric
 
 Interesting counters land there automatically: job outcomes
 (done/retry/failed/failed_final per job type), source runs (ok/error),
-deliveries by kind, webhook events processed.
+deliveries by kind.
 
 ### 4.3 Logs (pino, one JSON line per event)
 

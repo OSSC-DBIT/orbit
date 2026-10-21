@@ -22,10 +22,8 @@ export const tenantTables: string[] = [
   "guild_channels",
   "guild_preferences",
   "guild_authorized_roles",
-  "guild_projects",
   "opportunity_deliveries",
   "deadline_notifications",
-  "project_events",
   "audit_logs",
   "infrastructure_hosts",
 ];

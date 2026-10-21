@@ -1,12 +1,9 @@
 import {
   createCipheriv,
   createDecipheriv,
-  createHmac,
   randomBytes,
   randomUUID,
   timingSafeEqual,
-  createSign,
-  createVerify,
 } from "node:crypto";
 import { REDACTED } from "./redact.js";
 
@@ -60,30 +57,6 @@ export function decryptSecret(encrypted: string, key: string | Buffer): string {
   ]).toString("utf8");
 }
 
-/** Verifies `X-Hub-Signature-256: sha256=<hex>` style signatures (GitHub webhooks). */
-export function verifyHmacSha256(
-  payload: Buffer | string,
-  signatureHeader: string | undefined,
-  secret: string,
-): boolean {
-  if (!signatureHeader || typeof signatureHeader !== "string") return false;
-  const provided = signatureHeader.trim();
-  const match = /^(?:sha256=)?([a-f0-9]{64})$/i.exec(provided);
-  const hex = match?.[1];
-  if (!hex) return false;
-  const expected = createHmac("sha256", secret).update(payload).digest("hex");
-  try {
-    return timingSafeEqual(Buffer.from(hex.toLowerCase(), "hex"), Buffer.from(expected, "hex"));
-  } catch {
-    return false;
-  }
-}
-
-/** Returns the HMAC signature in GitHub's wire format (for tests). */
-export function hmacSha256Signature(payload: Buffer | string, secret: string): string {
-  return "sha256=" + createHmac("sha256", secret).update(payload).digest("hex");
-}
-
 const REDACTED_SECRET = REDACTED;
 
 /** Constant-time string equality (both inputs hex/base64 safe). */
@@ -94,34 +67,6 @@ export function safeEquals(a: string, b: string): boolean {
     return false;
   }
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-
-/** RS256 JWT signing used for GitHub App installation tokens. */
-export function signJwtRs256(
-  payload: { iss: string; iat: number; exp: number },
-  privatePem: string,
-): string {
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signer = createSign("RSA-SHA256");
-  signer.update(`${header}.${body}`);
-  const signature = signer.sign(privatePem.replace(/\\n/g, "\n"), "base64url");
-  return `${header}.${body}.${signature}`;
-}
-
-/** Verify helper (used in tests for round-trip validation). */
-export function verifyJwtRs256(jwt: string, publicPem: string): Record<string, unknown> | null {
-  const parts = jwt.split(".");
-  if (parts.length !== 3) return null;
-  const [h, b, s] = parts as [string, string, string];
-  const verifier = createVerify("RSA-SHA256");
-  verifier.update(`${h}.${b}`);
-  if (!verifier.verify(publicPem, Buffer.from(s, "base64url"))) return null;
-  try {
-    return JSON.parse(Buffer.from(b, "base64url").toString("utf8")) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
 }
 
 export function newId(): string {

@@ -15,8 +15,6 @@ import type { TenantService } from "../../tenants/services/tenant-service.js";
 import type { DeliveryService } from "../../opportunities/delivery/delivery-service.js";
 import type { Collector } from "../../opportunities/collectors/collector.js";
 import type { AiEngine } from "../../ai/services/engine.js";
-import type { WorkflowDiagnostics } from "../../projects/workflows/diagnostics.js";
-import type { ReportService } from "../../projects/reporting/report-service.js";
 import { DEFAULT_TIMEZONE, formatInTz } from "../../core/time/tz.js";
 import { getLogger, scopedLogger } from "../../core/logging/logger.js";
 
@@ -32,8 +30,6 @@ export interface CommandDeps {
   db: Database;
   ai: AiEngine;
   collector: Collector;
-  diagnostics: WorkflowDiagnostics | null;
-  reports: ReportService | null;
 }
 
 export interface OrbitCommandContext {

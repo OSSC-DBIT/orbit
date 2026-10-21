@@ -14,6 +14,7 @@ import {
 } from "../database/schema/index.js";
 import { hoursOfDigest } from "./digest-cal.js";
 import { getLogger, scopedLogger } from "../core/logging/logger.js";
+import { loadConfig } from "../core/config/env.js";
 import { metrics, gauge } from "../observability/metrics.js";
 import { DEFAULT_TIMEZONE } from "../core/time/tz.js";
 import type { StoredOpportunity } from "../core/types/opportunity.js";
@@ -217,18 +218,16 @@ function mapPrefsRow(guildId: string, row: Record<string, unknown>): GuildPrefer
   };
 }
 
-export async function retentionCleanup(db: Database): Promise<{ deliveries: number; events: number }> {
-  const cutoff = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
-  const deliveries = (await db.execute(sql`
-    delete from github_webhook_deliveries
-      where processed_at is not null and received_at < ${cutoff}
-  `)) as unknown as { rowCount?: number | null };
-  const events = (await db.execute(sql`
-    delete from project_events where occurred_at < ${cutoff}
-  `)) as unknown as { rowCount?: number | null };
-  await db.execute(sql`delete from audit_logs where created_at < ${cutoff}`);
-  await db.execute(sql`delete from scheduled_jobs where status in ('done','failed') and updated_at < ${cutoff}`);
-  return { deliveries: deliveries.rowCount ?? 0, events: events.rowCount ?? 0 };
+export async function retentionCleanup(db: Database): Promise<{ auditLogs: number; jobs: number }> {
+  const days = loadConfig().RETENTION_DAYS;
+  const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+  const auditLogs = (await db.execute(sql`delete from audit_logs where created_at < ${cutoff}`)) as unknown as {
+    rowCount?: number | null;
+  };
+  const jobs = (await db.execute(
+    sql`delete from scheduled_jobs where status in ('done','failed') and updated_at < ${cutoff}`,
+  )) as unknown as { rowCount?: number | null };
+  return { auditLogs: auditLogs.rowCount ?? 0, jobs: jobs.rowCount ?? 0 };
 }
 
 /** Ensures recurring jobs exist (idempotent; runs at startup). */

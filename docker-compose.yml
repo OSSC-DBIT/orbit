@@ -53,11 +53,6 @@ services:
       # bound locally only: public traffic arrives through the cloudflared
       # tunnel service (recommended) or your own reverse proxy
       - "127.0.0.1:3000:3000"
-    volumes:
-      # optional secrets dir: keep a GitHub App private key at
-      # secrets/github-app-key.pem and point GITHUB_APP_PRIVATE_KEY_PATH at
-      # /run/secrets/github-app-key.pem (missing file -> that feature off)
-      - ./secrets:/run/secrets:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/healthz"]
       interval: 30s

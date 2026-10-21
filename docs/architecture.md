@@ -5,11 +5,10 @@
 ```
                         ┌────────────────────────── one process (src/index.ts) ──────────────────┐
  Discord Gateway  ───►  │ bot/client.ts ─► interaction dispatch ─► commands (core/config/       │
-                        │                                        opportunities/projects) ─►    │
+                        │                                        opportunities) ─►             │
                         │                                        TenantService (RLS scoped)    │
- API :3000        ───►  │ api/server.ts  /healthz /readyz /metrics /api/webhooks/github          │
+ API :3000        ───►  │ api/server.ts  /healthz /readyz /metrics                  │
                         │                /api/admin/* /api/integrations/*                        │
- GitHub webhooks  ───►  │ projects/webhooks/verify.ts ─► events/pipeline.ts ─► tenant fanout     │
                         └───────────────┬──────────────────────────────────────┬─────────────────┘
                                         │                                      │
                         jobs/scheduler.ts (Postgres backed, SKIP LOCKED)       │
@@ -25,8 +24,8 @@
 A single Node process hosts all planes of the system:
 
 1. Discord gateway: slash commands and interaction events.
-2. HTTP plane (Express): health, metrics, GitHub webhook (raw body + HMAC),
-   admin API (bearer token), external integration API (bearer token).
+2. HTTP plane (Express): health, metrics, admin API (bearer token), external
+   integration API (bearer token).
 3. Job plane: a Postgres backed scheduler using `FOR UPDATE SKIP LOCKED` with
    stale claim recovery and bounded retries.
 
@@ -97,7 +96,7 @@ success, streak of failures, errors) visible to admins and in the integration AP
 - The policy uses the transaction local GUC `app.guild_id`:
   `guild_id = current_setting('app.guild_id') or app.guild_id = '__system__'`.
 - TenantService opens `withTenant(guildId, ...)` transactions for all tenant
-  reads/writes; system runs (collector, scheduler, webhook pipeline) use the
+  reads/writes; system runs (collector, scheduler, maintenance jobs) use the
   connection default `__system__` scope with explicit guild filters in SQL.
 - The pool never leaks context: `set_config(..., true)` is transaction scoped.
 
@@ -126,7 +125,6 @@ excerpts are redacted before they leave the process.
 | `/healthz` | public | liveness |
 | `/readyz` | public | readiness (checks DB) |
 | `/metrics` | gated | Prometheus exposition |
-| `/api/webhooks/github` | HMAC (X Hub Signature 256) | raw body webhooks, dedupe by delivery id |
 | `/api/admin/sources`, `/api/admin/jobs/failures` | bearer admin token | ops |
 | `/api/integrations/health` | bearer integration token | single health report JSON |
 | `/api/integrations/logs` | bearer integration token | structured failure feed |
@@ -140,7 +138,6 @@ excerpts are redacted before they leave the process.
 | `src/opportunities/collectors/collector.ts` | sync orchestration, dedup, lifecycle |
 | `src/opportunities/delivery` | delivery engine, deadline scheduler |
 | `src/opportunities/matching` | tenant filters + ranking |
-| `src/projects/*` | GitHub App auth, webhook verify, event pipeline, diagnostics |
 | `src/bot/*` | discord client, command modules, embeds, pagination |
 | `src/jobs/*` | durable scheduler + handlers + digest calendar |
 | `src/api/*` | express server, admin + integration routes |

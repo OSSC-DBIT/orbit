@@ -5,7 +5,7 @@ import type { SendPayload, DiscordChannel } from "../opportunities/delivery/deli
 
 /**
  * Resolves Discord sendable channels from tenant channel configuration for
- * the delivery engine (instant, digest, deadline, GitHub event feeds).
+ * the delivery engine (instant, digest, deadline and infrastructure feeds).
  */
 export class DiscordTargetResolver {
   constructor(

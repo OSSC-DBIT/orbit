@@ -29,7 +29,6 @@ export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
 
 export const FEATURE_KEYS = [
   "opportunities",
-  "github_projects",
   "deadline_alerts",
   "digest",
   "ai_summaries",
@@ -40,8 +39,6 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 export const CHANNEL_KINDS = [
   "opportunities",
-  "github_alerts",
-  "github_activity",
   "digest",
   "deadlines",
   "infrastructure",

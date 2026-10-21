@@ -23,16 +23,6 @@ const envSchema = z.object({
     .regex(/^\d{10,25}$/, { message: "DISCORD_APPLICATION_ID must be a Discord snowflake ID" }),
   DISCORD_PUBLIC_KEY: z.string().optional(),
 
-  GITHUB_APP_ID: z.string().optional(),
-  // slug part of the public app URL (github.com/apps/<slug>); /project add
-  // uses it to render the one click installation link for admins
-  GITHUB_APP_SLUG: z.string().optional(),
-  GITHUB_APP_PRIVATE_KEY: z.string().optional(),
-  GITHUB_APP_PRIVATE_KEY_PATH: z.string().optional(),
-  GITHUB_WEBHOOK_SECRET: z.string().min(16).optional(),
-  GITHUB_WEBHOOK_PATH: z.string().startsWith("/").default("/api/webhooks/github"),
-
-  PUBLIC_WEBHOOK_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   ADMIN_API_TOKEN: z.string().min(16).optional(),
 

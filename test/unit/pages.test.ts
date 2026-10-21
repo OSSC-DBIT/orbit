@@ -19,7 +19,7 @@ describe("public static pages", () => {
     expect(html).toContain("Data we collect");
     expect(html).toContain("no message content intent");
     expect(html).toContain("OSSC DBIT, Bangalore");
-    expect(html).toContain("AES-256-GCM");
+    expect(html).toContain("stored in the database");
   });
 
   it("terms page covers information quality and as-is warranty", () => {
