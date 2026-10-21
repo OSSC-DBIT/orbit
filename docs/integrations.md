@@ -1,0 +1,250 @@
+# Orbit integration API
+
+Orbit ships a machine-to-machine surface so YOUR projects (dashboards, bots,
+cron jobs, status pages, Prometheus) can consume its health, logs and
+catalog. One base URL, bearer token auth, JSON everywhere.
+
+```
+Base URLs:
+  local (inside the host):       http://127.0.0.1:3000
+  public (tunnel, live):         https://orbit-staging.webuildnow.in
+```
+
+Related docs: `docs/operations.md` (runbook), `docs/cadence.md` (delivery
+guarantees), `docs/scheduling.md` (scheduler internals).
+
+## Tokens
+
+| Token | Env var | Grants |
+| --- | --- | --- |
+| Integration token | `INTEGRATION_API_TOKEN` | `GET /api/integrations/*` |
+| Admin token | `ADMIN_API_TOKEN` | `GET /api/admin/*`, `POST /api/admin/*`, and also `GET /api/integrations/*` and `GET /metrics` |
+
+- Generate with `openssl rand -hex 32`; store only in the git ignored `.env`.
+- Every call: `Authorization: Bearer <token>` header. Plain HTTPS, plus
+  constant-time comparison server side.
+- If neither token is set, the integration and admin APIs answer **503**
+  (disabled, never exposed). Wrong token: **401** (integration) / **403**
+  (metrics).
+- Rotate: edit `.env` then `docker compose up -d` (recreate). Your callers
+  read the new token from their own secret store the next run.
+- Never ship the token into a browser app: this API is for servers, cron and
+  CI only.
+
+## Endpoint reference
+
+| Endpoint | Auth | Purpose |
+| --- | --- | --- |
+| `GET /healthz` | none | liveness; returns `{"status":"ok","app":"orbit"}`; best uptime-probe target |
+| `GET /readyz` | none | readiness incl. database ping (200 or 503) |
+| `GET /metrics` | loopback only, or `ADMIN_API_TOKEN` bearer | Prometheus text exposition |
+| `GET /api/integrations/health` | integration or admin token | full health report JSON |
+| `GET /api/integrations/logs` | integration or admin token | structured failure/event feed |
+| `GET /api/admin/sources` | admin token | per source table rows (id, enabled, interval, last run, streak) |
+| `GET /api/admin/jobs/failures` | admin token | last 50 failed scheduler jobs |
+| `POST /api/admin/sources/:id/sync` | admin token | force one source sync now (returns collector stats) |
+
+## The health report (`GET /api/integrations/health`)
+
+One self-contained JSON document. Collapse and forward to your dashboards.
+
+```json
+{
+  "app": "orbit",
+  "version": "0.1.0",
+  "generatedAt": "2026-10-21T05:33:17.634Z",
+  "status": "degraded",
+  "checks": {
+    "database": { "reachable": true, "latencyMs": 2 },
+    "scheduler": {
+      "counts": { "pending": 5 },
+      "stuckPending": 0,
+      "failures": []
+    },
+    "sources": [
+      {
+        "id": "jobspy",
+        "enabled": true,
+        "intervalMinutes": 60,
+        "lastRunAt": "2026-10-21 04:30:13.921+00",
+        "lastSuccessAt": "2026-10-21 04:30:13.921+00",
+        "lastError": null,
+        "consecutiveFailures": 0
+      }
+    ],
+    "deliveries": { "last24h": { "delivered": 15, "failed": 0 } },
+    "catalog": { "total": 513, "open": 513, "closingSoon": 6, "withDeadline": 28 },
+    "tenants": 1
+  },
+  "warnings": []
+}
+```
+
+Interpretation cheat sheet:
+
+- `status`: `healthy` / `degraded` / `unhealthy`.
+  - `unhealthy`: database unreachable (also HTTP 503).
+  - `degraded`: hard limits breached (more than 20 failed deliveries in 24 h,
+    more than 20 stuck pending jobs) or soft warnings present.
+  - `healthy`: everything green; `warnings` empty.
+- `scheduler.counts`: live queue histogram (`pending`/`running`/`done`/`failed`).
+- `scheduler.stuckPending`: pending jobs older than 1 h. Non zero = worker
+  down signal.
+- `sources[].lastRunAt`/`lastSuccessAt`: PostgreSQL timestamp strings (not
+  ISO 8601). Parse with care (`new Date("2026-10-21 04:30:13.921+00")` works
+  in JS).
+- `sources[].consecutiveFailures` with no `lastSuccessAt`: source never
+  succeeded; upstream API or egress problem.
+- `deliveries.last24h`: what the bot actually posted vs failed posting.
+- `catalog`: opportunity totals (open, closingSoon, withDeadline DEADLINE
+  ONLY where sources provide one).
+
+### Poll it and alert yourself (bash)
+
+```bash
+#!/usr/bin/env bash
+# orbit-watch.sh: alert channel ingest on degraded/stale
+set -euo pipefail
+TOKEN="$ORBIT_INTEGRATION_TOKEN"
+BASE="https://orbit-staging.webuildnow.in"
+report=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$BASE/api/integrations/health")
+status=$(echo "$report" | jq -r .status)
+stale=$(echo "$report" | jq -r '.checks.sources[] | select(.consecutiveFailures >= 3 and .lastSuccessAt == null) | .id' | paste -sd,)
+if [ "$status" != "healthy" ] || [ -n "$stale" ]; then
+  echo "$report" | jq -r '"Orbit '"$status"' (stale: '"$stale"')\nwarnings: " + (.warnings | join("; "))'
+fi
+```
+
+Wire it to cron every 10 min; pipe the output line into anything that pings
+you (Discord webhook channel, Slack, telegram, email). A silent exit is the
+healthy path.
+
+### Poll it from Node
+
+```javascript
+// orbit-status.js
+const TOKEN = process.env.ORBIT_INTEGRATION_TOKEN; // never hardcode
+const BASE = "https://orbit-staging.webuildnow.in";
+
+export async function orbitHealth() {
+  const res = await fetch(`${BASE}/api/integrations/health`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
+  if (res.status === 401) throw new Error("orbit token rejected");
+  if (res.status === 503) return { status: "unhealthy" }; // db down shape
+  if (!res.ok) throw new Error(`orbit status ${res.status}`);
+  return res.json();
+}
+
+// in your project:
+const { status, checks, warnings } = await orbitHealth();
+console.log(status, checks.deliveries.last24h, warnings);
+```
+
+### Poll it from Python
+
+```python
+import os, requests
+
+TOKEN = os.environ["ORBIT_INTEGRATION_TOKEN"]
+BASE = "https://orbit-staging.webuildnow.in"
+
+r = requests.get(
+    f"{BASE}/api/integrations/health",
+    headers={"Authorization": f"Bearer {TOKEN}"},
+    timeout=10,
+)
+r.raise_for_status()
+report = r.json()
+print(report["status"], report["checks"]["deliveries"], report["warnings"])
+```
+
+## The failure feed (`GET /api/integrations/logs`)
+
+Structured events assembled from persisted state (never raw stdout), so log
+rotation cannot lose history.
+
+```json
+{
+  "generatedAt": "2026-10-21T05:33:17.782Z",
+  "count": 5,
+  "events": [
+    {
+      "ts": "2026-10-21T04:31:07.054Z",
+      "severity": "error",
+      "origin": "deliveries",
+      "message": "delivery failed for opportunity 832: Missing Access",
+      "context": { "guildId": "1347894271214092288", "opportunityId": 832 }
+    }
+  ]
+}
+```
+
+- `severities`: `error` (hard failures, always kept when `level=error`),
+  `warn` (soft degradation rows), `info` (job attempt telemetry).
+- `origins`: `jobs` (scheduler job states and failures), `sources` (connector
+  errors), `deliveries` (Discord post failures).
+- Query params: `level=error` keeps errors only (default shows all levels);
+  `since_minutes=<n>` window (default 1440 = one day, clamped to 1..43200 =
+  30 days); `limit=<n>` (default 100, capped at 300). Omitted parameters are
+  safe: you always get the 24 h window.
+
+```bash
+# every delivery error of the last day
+curl -s -H "Authorization: Bearer $INTEGRATION_API_TOKEN" \
+  "$BASE/api/integrations/logs?level=error&since_minutes=1440"
+
+# every sourcer error of the last hour into your own log pipeline
+curl -s -H "Authorization: Bearer $INTEGRATION_API_TOKEN" \
+  "$BASE/api/integrations/logs?level=error&since_minutes=60&limit=300" \
+  | jq -r '.events[] | "\(.ts) [\(.origin)] \(.message)"'
+```
+
+## Prometheus (`GET /metrics`)
+
+Serves the standard text exposition. Counter families (all multiply through a
+`orbit_jobs_total`, `orbit_source_sync_total`, `orbit_deliveries_total`,
+`orbit_opportunities_total` style naming with `status` labels, plus the
+`orbit_process_up` and `orbit_lifecycle_last_run_epoch` gauges):
+
+```
+# prometheus scrape snippet
+scrape_configs:
+  - job_name: orbit
+    metrics_path: /metrics
+    scheme: https
+    authorization:
+      credentials_file: /etc/orbit/admin-token   # ADMIN_API_TOKEN value
+    static_configs:
+      - targets: ["orbit-staging.webuildnow.in"]
+```
+
+Tip: `orbit_lifecycle_last_run_epoch` lets you alert "no lifecycle sweep in
+more than 2 h"; `orbit_deliveries_total{status="failed"}` is the post
+failure rate you probably want on a dashboard.
+
+## Uptime probing (no token needed)
+
+`/healthz` is public and tiny: point UptimeRobot, Better Stack, Healthchecks
+etc. at `https://orbit-staging.webuildnow.in/healthz` and match the body
+keyword `ok`. `/readyz` adds the database ping for a second check.
+
+## Forcing a sync from your own scripts
+
+`POST /api/admin/sources/:id/sync` runs one source immediately, regardless of
+its hourly due gate, and returns the collector stats:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  $BASE/api/admin/sources/jobspy/sync | jq .
+```
+
+Note that this is admin API (admin token), not the integration token.
+
+## What NOT to build against
+
+- No CORS: do not call this from browser client code (token leak surface).
+- No guaranteed field stability across major bumps: pin `app.version` when
+  you parse.
+- No realtime push: poll the two read endpoints (or scrape metrics) on a
+  1 min to 10 min cadence; they are cheap (a few small indexed queries).

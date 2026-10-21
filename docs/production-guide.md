@@ -5,9 +5,9 @@ HTTPS URL through a Cloudflare tunnel, and every credential Orbit needs.
 Follow it top to bottom and you end up with a running deployment verified by
 the checklist in section 10.
 
-See also: `docs/deployment.md` (machine prep, upgrades, backups, reverse
-proxy alternative), `docs/operations.md` (runbook) and `docs/security.md`
-(threat model).
+See also: `docs/deployment.md` (machine prep, upgrades, backups), `docs/operations.md`
+(runbook), `docs/security.md` (threat model) and `docs/integrations.md` (call
+this instance from your own projects).
 
 ## 0. Staging now, production later
 

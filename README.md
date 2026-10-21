@@ -107,6 +107,8 @@ not integrated because their public endpoints are dead.
 - `docs/operations.md` - runbook: health, jobs, incidents, capacity
 - `docs/sources.md` - source connectors in detail
 - `docs/cadence.md` - automatic delivery cadence and how no repetition is guaranteed
+- `docs/integrations.md` - the integration API: health report, failure feed,
+  metrics, examples in curl/Node/Python/Prometheus for your own projects
 
 ## Development
 

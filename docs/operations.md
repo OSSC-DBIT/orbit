@@ -1,7 +1,9 @@
 # Orbit operations runbook
 
 Day-2 operations. Setup lives in `docs/production-guide.md`, machine prep in
-`docs/deployment.md`.
+`docs/deployment.md`. Please also see `docs/integrations.md`: how to call
+this instance's health and log feeds from your own projects, and
+`docs/cadence.md` for the automatic delivery cadence.
 
 ## 1. Health surfaces
 
