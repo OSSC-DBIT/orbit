@@ -51,11 +51,13 @@ All config mutations are admin gated (`Administrator`, `Manage Server`,
 or a principal listed via `/authorized-roles`). Authorization is strictly per guild;
 everyone can browse opportunities without any role.
 
-## The 3-4/day sync, no repetition
+## Hourly sync, no repetition
 
-Sources are collected on a durable Postgres backed scheduler (no Redis). Default
-cadence is every 420 minutes (7 hours), i.e. 3 to 4 runs per day per source.
-Repetition is blocked by a chain:
+Sources are collected on a durable Postgres backed scheduler (no Redis). The
+parent pass runs every hour and per-source `interval_minutes` is hourly by
+default, so new hackathons/jobs/internships surface within roughly an hour of
+publication. If a pass finds nothing new it posts nothing. Repetition is
+blocked by a chain:
 
 1. content fingerprint per listing (meaningful fields; presentation changes ignored)
 2. unique `opportunity_deliveries` rows per (guild, opportunity, channel, delivery kind)
@@ -104,6 +106,7 @@ not integrated because their public endpoints are dead.
 - `docs/deployment.md` - machine prep, compose lifecycle, backups, upgrades
 - `docs/operations.md` - runbook: health, jobs, incidents, capacity
 - `docs/sources.md` - source connectors in detail
+- `docs/cadence.md` - automatic delivery cadence and how no repetition is guaranteed
 
 ## Development
 

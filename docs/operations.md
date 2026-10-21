@@ -52,7 +52,7 @@ Jobs live in `scheduled_jobs`. Normal cadence:
 
 | Job | Interval | Does |
 | --- | --- | --- |
-| `sync_sources` | parent cadence (by default every 420 min; per source `interval_minutes` also applies) | collects due sources, dedupes, fans out fresh listings |
+| `sync_sources` | hourly (per source `interval_minutes` also applies, hourly by default) | collects due sources, dedupes, fans out fresh listings |
 | `lifecycle_sweep` | hourly | closes past deadlines, ages listings |
 | `deadline_sweep` | 15 min | sends due deadline reminder rows |
 | `digest_dispatch` | hourly | dispatches digests when a guild's local hour matches `digest_hours` (IST default window) |

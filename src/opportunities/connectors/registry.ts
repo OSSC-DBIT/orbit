@@ -39,10 +39,10 @@ export const GLOBAL_SOURCES: Array<{
   intervalMinutes?: number;
   enabled: 0 | 1;
 }> = [
-  { id: "jobspy", kind: "api", categories: ["job", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
-  { id: "hackathon-api", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
-  { id: "hackculture", kind: "api", categories: ["hackathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: 420, enabled: 1 },
-  { id: "devpost", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge"], config: {}, intervalMinutes: 420, enabled: 1 },
+  { id: "jobspy", kind: "api", categories: ["job", "internship"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
+  { id: "hackathon-api", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
+  { id: "hackculture", kind: "api", categories: ["hackathon", "innovation_challenge", "internship"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
+  { id: "devpost", kind: "api", categories: ["hackathon", "buildathon", "innovation_challenge"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
   { id: "remotive", kind: "api", categories: ["remote_job", "job"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
   { id: "hn-hiring", kind: "api", categories: ["job", "remote_job", "internship"], config: {}, intervalMinutes: DEFAULT_SOURCE_INTERVAL_MINUTES, enabled: 1 },
 ];

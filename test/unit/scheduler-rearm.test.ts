@@ -12,9 +12,9 @@ describe("scheduler: recurring re-arm policy", () => {
     const next = computeNextRun("sync_sources", {});
     expect(next).toBeInstanceOf(Date);
     const delta = (next as Date).getTime() - before;
-    // sync_sources re-arms at ~3h plus a small completion jitter
-    expect(delta).toBeGreaterThan(3 * 3_600 * 1_000 - 1_000);
-    expect(delta).toBeLessThanOrEqual(3 * 3_600 * 1_000 + 45_000);
+    // sync_sources re-arms at ~1h plus a small completion jitter
+    expect(delta).toBeGreaterThan(3_600 * 1_000 - 1_000);
+    expect(delta).toBeLessThanOrEqual(3_600 * 1_000 + 45_000);
   });
 
   it("prefers payload.intervalSeconds over the built-in cadence map", () => {

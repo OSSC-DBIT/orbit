@@ -233,7 +233,7 @@ export async function retentionCleanup(db: Database): Promise<{ auditLogs: numbe
 /** Ensures recurring jobs exist (idempotent; runs at startup). */
 export function recurringIntervals(): Record<string, Record<string, unknown>> {
   return {
-    sync_sources: { intervalSeconds: 3 * 3600 }, // parent cadence; per-source gating uses interval_minutes
+    sync_sources: { intervalSeconds: 3600 }, // hourly parent pass; per-source gating uses interval_minutes
     lifecycle_sweep: { intervalSeconds: 3600 },
     deadline_sweep: { intervalSeconds: 15 * 60 },
     digest_dispatch: { intervalSeconds: 3600 },

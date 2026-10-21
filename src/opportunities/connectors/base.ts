@@ -44,12 +44,12 @@ export const SHARED_RATE_LIMITS = {
   hackathonApi: { requests: 4, windowMs: 60_000 },
   /** HackCulture public program API */
   hackculture: { requests: 6, windowMs: 60_000 },
-  github: { requests: 30, windowMs: 60_000 },
 } as const;
 
 /**
- * Default sync cadence for opportunity sources: every 7 hours ≈ 3 to 4 runs
- * per day. Per-source values are stored in `opportunity_sources.interval_minutes`
- * and can be tightened without code changes.
+ * Default sync cadence for opportunity sources: hourly. Per-source values are
+ * stored in `opportunity_sources.interval_minutes` and can be tightened or
+ * loosened without code changes. Delivery is deduped, so an hourly pass that
+ * finds nothing new posts nothing.
  */
-export const DEFAULT_SOURCE_INTERVAL_MINUTES = 420;
+export const DEFAULT_SOURCE_INTERVAL_MINUTES = 60;

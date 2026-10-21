@@ -279,7 +279,7 @@ export function computeNextRun(jobType: string, payload: Record<string, unknown>
     return new Date(Date.now() + intervalSeconds * 1000 + Math.floor(Math.random() * 45_000));
   }
   const recurringIntervals: Record<string, number> = {
-    sync_sources: 3 * 3600,
+    sync_sources: 3600,
     lifecycle_sweep: 3600,
     deadline_sweep: 15 * 60,
     digest_dispatch: 3600,

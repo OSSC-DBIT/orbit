@@ -60,8 +60,8 @@ disabled in `RETIRED_SOURCES`; its listings were purged).
   fields are absent from the JSON lines, never guessed.
 - Jobs and internships legitimately have no deadline: `application_deadline`
   and event dates stay `null`. Attribution is per board in metadata.
-- The call frequency is the standard 420 minute cadence, within each board's
-  tolerance as observed the day the pilot shipped; no LinkedIn, no proxies,
+- The call frequency is the hourly cadence (60 minutes, within each board's
+  tolerance as observed the day the pilot shipped); no LinkedIn, no proxies,
   no other boards unless a maintainer changes the CLI args (pinned in code).
 
 ### hackathon-api (documented in detail)
@@ -112,10 +112,10 @@ These are revisited when their public surfaces stabilize.
 
 ## Cadence
 
-Per-source collection every `SYNC_INTERVAL_MINUTES` (default 420 = 7h), i.e.
-3-4 collection passes/day/source; per-source overrides live in
-`opportunity_sources.interval_minutes`. Health per source (last run, last
-success, failure streak, last error) is visible to admins and in the
+Per-source collection every hour by default (60 minutes; per-source overrides
+live in `opportunity_sources.interval_minutes`); a pass that finds nothing new
+posts nothing. Health per source (last run, last success, failure streak, last
+error) is visible to admins and in the
 integration report. The queue mechanics behind these cadences, plus every
 health probe and the failure playbook, are documented in `docs/scheduling.md`.
 

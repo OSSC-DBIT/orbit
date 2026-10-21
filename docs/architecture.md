@@ -74,9 +74,11 @@ Unknown facts stay `null` throughout; connectors never invent data.
 
 ### Cadence
 
-`SYNC_INTERVAL_MINUTES=420` (7 hours) is the default per source interval: 3 to 4
-compounded runs per day. Each run records per source health (last run, last
-success, streak of failures, errors) visible to admins and in the integration API.
+Per-source `interval_minutes` defaults to hourly (60 minutes); the parent
+`sync_sources` job also runs hourly. A pass that finds nothing new posts
+nothing (dedupe chain below). Each run records per source health (last run,
+last success, streak of failures, errors) visible to admins and in the
+integration API.
 
 ## Time zones
 

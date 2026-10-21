@@ -44,7 +44,7 @@ computed run_at) wins, so boot jitter never delays a job.
 
 | Job type | Does | Cadence |
 | --- | --- | --- |
-| `sync_sources` | one pass over enabled sources: connectors who are due (per-source `interval_minutes`, default 420) run in sync-priority order, listings dedupe and fan out | parent chain every 3 hours |
+| `sync_sources` | one pass over enabled sources: connectors who are due (per-source `interval_minutes`, hourly by default) run in sync-priority order, listings dedupe and fan out | parent chain every hour |
 | `lifecycle_sweep` | expires or closes past listings (none stays stale in the catalog) | every hour |
 | `deadline_sweep` | materializes per-tenant deadline reminders and sends ones that fall due (reminder offsets default 72h / 24h / 6h) | every 15 minutes |
 | `digest_dispatch` | sends the daily digest to a guild when its local hour matches its `digest_hours` (guild timezone, IST by default) | checks every hour |

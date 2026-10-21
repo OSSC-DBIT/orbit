@@ -80,7 +80,6 @@ cp .env.example .env
 | `GROQ_API_KEY` | optional, console.groq.com | without it everything still works, minus AI summaries |
 | `AI_MONTHLY_REQUEST_BUDGET` | you | hard monthly cap on AI calls |
 | `DEFAULT_TIMEZONE` | you | `Asia/Kolkata` (IST first) unless a guild overrides it |
-| `SYNC_INTERVAL_MINUTES` | you | `420` keeps the 3-4 syncs/day cadence |
 | `DISCORD_REGISTER_COMMANDS` | `1` on first install | registers slash commands at boot |
 | `RETENTION_DAYS` | you | cleanup window for event logs |
 | `PGADMIN_EMAIL` | `you@yourdomain.dev` | login for pgAdmin at `http://127.0.0.1:5050`; reserved names like `*.local` fail its boot validation |
