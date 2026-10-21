@@ -283,6 +283,7 @@ export function computeNextRun(jobType: string, payload: Record<string, unknown>
     lifecycle_sweep: 3600,
     deadline_sweep: 15 * 60,
     digest_dispatch: 3600,
+    infra_sweep: 15 * 60,
     retention_cleanup: 24 * 3600,
   };
   if (jobType in recurringIntervals) {

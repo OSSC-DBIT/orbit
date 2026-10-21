@@ -8,9 +8,11 @@ and reviewers will hold you to.
 
 A multi tenant Discord bot and platform that discovers, normalizes,
 deduplicates and delivers developer opportunities (hackathons, internships,
-jobs) and monitors GitHub projects for CI failures. Single process: Discord
-gateway + Express API + Postgres backed scheduler. Self hosted via Docker
-Compose on Ubuntu. IST (Asia/Kolkata) is the default timezone everywhere.
+jobs) and lets external projects push health and failure events into their
+own Discord channels (project monitoring, bearer enrol tokens). Single
+process: Discord gateway + Express API + Postgres backed scheduler. Self
+hosted via Docker Compose on Ubuntu. IST (Asia/Kolkata) is the default
+timezone everywhere.
 
 ## Non negotiable invariants
 
@@ -110,10 +112,10 @@ role).
 | `src/opportunities/normalization` | text, URL and date normalization |
 | `src/opportunities/delivery` | delivery engine (transactional claims), deadline scheduler |
 | `src/opportunities/matching` | tenant filters and ranking |
-| `src/projects/*` | GitHub App JWT auth, signed webhook verify, event pipeline, diagnostics |
+| `src/monitoring` | project status monitoring (push): ingest service, token hash, stale watchdog, announce fanout |
 | `src/bot/*` | discord client (non fatal login retry), embeds, commands, pagination |
 | `src/jobs/*` | durable scheduler, job handlers, digest calendar |
-| `src/api/*` | express server: health, metrics, webhook, admin, integration routes |
+| `src/api/*` | express server: health, metrics, admin, integration and project ingest routes |
 | `docs/*` | architecture, security, deployment, operations, sources |
 
 ## Definition of done

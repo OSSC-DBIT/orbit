@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../../database/client.js";
 import { getDb, withTenant } from "../../database/client.js";
 import {
@@ -8,11 +8,15 @@ import {
   guildChannels,
   guildFeatureSettings,
   guildPreferences,
+  infrastructureHosts,
   users,
 } from "../../database/schema/index.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../core/errors/index.js";
 import { evaluateAdminAuthorization } from "../policies/authorization.js";
 import type { ChannelKind, FeatureKey } from "../../core/types/common.js";
+
+/** Monitor project row shape (drizzle inferred). Never includes secrets. */
+export type InfrastructureHostRow = typeof infrastructureHosts.$inferSelect;
 
 /**
  * Tenant service — every guild-scoped mutation goes through here so audit
@@ -152,11 +156,12 @@ export class TenantService {
   private featureDefaults(): Record<string, boolean> {
     return {
       opportunities: true,
-      github_projects: false,
       deadline_alerts: true,
       digest: false,
       ai_summaries: true,
-      infrastructure_alerts: false,
+      // project monitoring announcements: on by default; projects only post
+      // once an admin registers one and binds a channel.
+      infrastructure_alerts: true,
     };
   }
 
@@ -165,8 +170,10 @@ export class TenantService {
       tx.select().from(guildFeatureSettings).where(eq(guildFeatureSettings.guildId, guildId)),
     );
     const defaults = this.featureDefaults();
+    // Ignore rows for features that no longer exist (e.g. removed github
+    // integration) instead of listing dead toggles.
     for (const row of rows) {
-      defaults[row.feature] = row.enabled === 1;
+      if (row.feature in defaults) defaults[row.feature] = row.enabled === 1;
     }
     return new Map(Object.entries(defaults) as [FeatureKey, boolean][]);
   }
@@ -393,6 +400,125 @@ export class TenantService {
     } catch {
       return false;
     }
+  }
+
+  // ── project monitoring (push) ───────────────────────────────────────────────
+  // User triggered registration/rotation lives here so tenant scoping and
+  // audit logging cannot be bypassed. Enrol tokens arrive pre-hashed; this
+  // class never sees the plaintext token.
+
+  async registerInfraProject(
+    guildId: string,
+    input: {
+      name: string;
+      homeUrl: string | null;
+      notifyChannelId: string | null;
+      slaMinutes: number;
+      enrolTokenHash: string;
+      addedBy: string;
+    },
+  ): Promise<number> {
+    const name = input.name.trim().slice(0, 64);
+    if (!name) throw new ValidationError("Project name must not be empty");
+    try {
+      return await this.scopedUnchecked(guildId, async (tx) => {
+        const rows = await tx
+          .insert(infrastructureHosts)
+          .values({
+            guildId,
+            name,
+            homeUrl: input.homeUrl,
+            notifyChannelId: input.notifyChannelId,
+            slaMinutes: Math.min(Math.max(Math.trunc(input.slaMinutes), 5), 1440),
+            enrolTokenHash: input.enrolTokenHash,
+            status: "pending",
+            addedBy: input.addedBy,
+          })
+          .returning({ id: infrastructureHosts.id });
+        await this.recordAudit(guildId, input.addedBy, "infra.project.added", { name, channelId: input.notifyChannelId });
+        const inserted = rows[0];
+        if (!inserted) throw new Error("infrastructure host insert returned no row");
+        return inserted.id;
+      });
+    } catch (err) {
+      if (err instanceof Error && (err as { code?: string }).code === "23505") {
+        throw new ValidationError("A project with that name already exists here");
+      }
+      throw err;
+    }
+  }
+
+  async listInfraProjects(guildId: string): Promise<Array<{ id: number; name: string; notifyChannelId: string | null; status: string; lastHeartbeatAt: Date | null; slaMinutes: number }>> {
+    return this.scoped(guildId, async (tx) => {
+      const rows = await tx
+        .select({
+          id: infrastructureHosts.id,
+          name: infrastructureHosts.name,
+          notifyChannelId: infrastructureHosts.notifyChannelId,
+          status: infrastructureHosts.status,
+          lastHeartbeatAt: infrastructureHosts.lastHeartbeatAt,
+          slaMinutes: infrastructureHosts.slaMinutes,
+        })
+        .from(infrastructureHosts)
+        .where(eq(infrastructureHosts.guildId, guildId))
+        .orderBy(asc(infrastructureHosts.name));
+      return rows;
+    });
+  }
+
+  async getInfraProject(guildId: string, name: string): Promise<InfrastructureHostRow | null> {
+    return this.scoped(guildId, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(infrastructureHosts)
+        .where(and(eq(infrastructureHosts.guildId, guildId), eq(infrastructureHosts.name, name.trim().slice(0, 64))))
+        .limit(1);
+      return rows[0] ?? null;
+    });
+  }
+
+  async removeInfraProject(guildId: string, name: string, actorId: string): Promise<boolean> {
+    const deleted = await this.scoped(guildId, async (tx) => {
+      const rows = await tx
+        .delete(infrastructureHosts)
+        .where(and(eq(infrastructureHosts.guildId, guildId), eq(infrastructureHosts.name, name.trim().slice(0, 64))))
+        .returning({ id: infrastructureHosts.id });
+      return rows.length;
+    });
+    if (deleted > 0) {
+      await this.recordAudit(guildId, actorId, "infra.project.removed", { name: name.trim().slice(0, 64) });
+    }
+    return deleted > 0;
+  }
+
+  async rotateInfraProjectToken(guildId: string, name: string, enrolTokenHash: string, actorId: string): Promise<boolean> {
+    const updated = await this.scoped(guildId, async (tx) => {
+      const rows = await tx
+        .update(infrastructureHosts)
+        .set({ enrolTokenHash, status: "pending" })
+        .where(and(eq(infrastructureHosts.guildId, guildId), eq(infrastructureHosts.name, name.trim().slice(0, 64))))
+        .returning({ id: infrastructureHosts.id });
+      return rows.length;
+    });
+    if (updated > 0) {
+      await this.recordAudit(guildId, actorId, "infra.project.token.rotated", { name: name.trim().slice(0, 64) });
+    }
+    return updated > 0;
+  }
+
+  async updateInfraProjectChannel(guildId: string, name: string, channelId: string | null, actorId: string): Promise<boolean> {
+    const updated = await this.scoped(guildId, async (tx) => {
+      const rows = await tx
+        .update(infrastructureHosts)
+        .set({ notifyChannelId: channelId })
+        .where(and(eq(infrastructureHosts.guildId, guildId), eq(infrastructureHosts.name, name.trim().slice(0, 64))))
+        .returning({ id: infrastructureHosts.id });
+      return rows.length;
+    });
+    if (updated > 0) {
+      await this.recordAudit(guildId, actorId, "infra.project.channel", { name: name.trim().slice(0, 64), channelId });
+    }
+    return updated > 0;
   }
 
   // ── audit + users ───────────────────────────────────────────────────────────

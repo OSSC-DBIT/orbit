@@ -5,6 +5,7 @@ import type { Collector } from "../opportunities/collectors/collector.js";
 import { DeadlineScheduler } from "../opportunities/delivery/deadline-scheduler.js";
 import { createConnector } from "../opportunities/connectors/index.js";
 import { ensureDefaultSources, SOURCE_SYNC_PRIORITY } from "../opportunities/connectors/registry.js";
+import type { InfraService } from "../monitoring/infra.js";
 import type { Database } from "../database/client.js";
 import { getDb } from "../database/client.js";
 import {
@@ -34,6 +35,8 @@ export interface JobWiring {
   scheduler: Scheduler;
   delivery: DeliveryService;
   collector: Collector;
+  /** Project monitoring service: push ingest + stale watchdog. */
+  infra: InfraService;
 }
 
 export function registerJobHandlers(wiring: JobWiring): void {
@@ -57,6 +60,11 @@ export function registerJobHandlers(wiring: JobWiring): void {
   scheduler.register("retention_cleanup", async () => {
     const stats = await retentionCleanup(getDb());
     scopedLogger(getLogger(), { tenant: "retention" }).info(stats, "retention cleanup complete");
+  });
+  scheduler.register("infra_sweep", async () => {
+    const flagged = await wiring.infra.sweepStaleHosts();
+    gauge("orbit_infra_stale_last_run", flagged);
+    scopedLogger(getLogger(), { tenant: "monitoring" }).info({ flagged }, "infra sweep complete");
   });
 }
 
@@ -218,7 +226,7 @@ function mapPrefsRow(guildId: string, row: Record<string, unknown>): GuildPrefer
   };
 }
 
-export async function retentionCleanup(db: Database): Promise<{ auditLogs: number; jobs: number }> {
+export async function retentionCleanup(db: Database): Promise<{ auditLogs: number; jobs: number; infraEvents: number }> {
   const days = loadConfig().RETENTION_DAYS;
   const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
   const auditLogs = (await db.execute(sql`delete from audit_logs where created_at < ${cutoff}`)) as unknown as {
@@ -227,7 +235,10 @@ export async function retentionCleanup(db: Database): Promise<{ auditLogs: numbe
   const jobs = (await db.execute(
     sql`delete from scheduled_jobs where status in ('done','failed') and updated_at < ${cutoff}`,
   )) as unknown as { rowCount?: number | null };
-  return { auditLogs: auditLogs.rowCount ?? 0, jobs: jobs.rowCount ?? 0 };
+  const infraEvents = (await db.execute(
+    sql`delete from infra_events where occurred_at < ${cutoff}`,
+  )) as unknown as { rowCount?: number | null };
+  return { auditLogs: auditLogs.rowCount ?? 0, jobs: jobs.rowCount ?? 0, infraEvents: infraEvents.rowCount ?? 0 };
 }
 
 /** Ensures recurring jobs exist (idempotent; runs at startup). */
@@ -237,6 +248,7 @@ export function recurringIntervals(): Record<string, Record<string, unknown>> {
     lifecycle_sweep: { intervalSeconds: 3600 },
     deadline_sweep: { intervalSeconds: 15 * 60 },
     digest_dispatch: { intervalSeconds: 3600 },
+    infra_sweep: { intervalSeconds: 15 * 60 }, // project heartbeat watchdog
     retention_cleanup: { intervalSeconds: 24 * 3600 },
   };
 }

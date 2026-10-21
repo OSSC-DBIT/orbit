@@ -13,7 +13,8 @@ import {
 
 /**
  * Reference / registry tables (not tenant-scoped):
- * users, opportunity sources + tags, infrastructure hosts and the job queue.
+ * users, opportunity sources + tags, infrastructure hosts and events, and the
+ * job queue.
  */
 
 export const users = pgTable("users", {
@@ -75,14 +76,47 @@ export const infrastructureHosts = pgTable(
     id: serial("id").primaryKey(),
     guildId: varchar("guild_id", { length: 32 }).notNull(),
     name: varchar("name", { length: 128 }).notNull(),
+    /** optional public project URL; rendered as plain text, never as a link */
+    homeUrl: varchar("home_url", { length: 300 }),
+    /** enrol token; only its sha256 hex is stored, the token itself never is */
     enrolTokenHash: varchar("enrol_token_hash", { length: 128 }).notNull(),
+    /** Discord channel this project posts into; falls back to the guild "infrastructure" binding */
+    notifyChannelId: varchar("notify_channel_id", { length: 32 }),
+    /** heartbeat budget in minutes; the watchdog flags the project stale past it */
+    slaMinutes: integer("sla_minutes").notNull().default(60),
+    /** pending | active | stale */
     status: varchar("status", { length: 24 }).notNull().default("pending"),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
+    addedBy: varchar("added_by", { length: 32 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("infrastructure_hosts_guild_idx").on(t.guildId),
     uniqueIndex("infrastructure_hosts_token_unique").on(t.enrolTokenHash),
+    uniqueIndex("infrastructure_hosts_name_unique").on(t.guildId, t.name),
+  ],
+);
+
+/** Push-in monitoring events from external projects (Bearer enrol token). */
+export const infraEvents = pgTable(
+  "infra_events",
+  {
+    id: serial("id").primaryKey(),
+    guildId: varchar("guild_id", { length: 32 }).notNull(),
+    hostId: integer("host_id").notNull(),
+    /** "ok" | "info" | "warn" | "error" */
+    severity: varchar("severity", { length: 12 }).notNull().default("info"),
+    message: text("message").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+    /** watchdog rows carry occurredAt = detection time and mention it in text */
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    announcedAt: timestamp("announced_at", { withTimezone: true }),
+    announcedChannelId: varchar("announced_channel_id", { length: 32 }),
+  },
+  (t) => [
+    index("infra_events_guild_time_idx").on(t.guildId, t.occurredAt),
+    index("infra_events_host_time_idx").on(t.hostId, t.occurredAt),
+    index("infra_events_unannounced_idx").on(t.announcedAt),
   ],
 );
 

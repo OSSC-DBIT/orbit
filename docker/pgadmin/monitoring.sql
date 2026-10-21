@@ -95,3 +95,18 @@ SELECT relname AS table,
 FROM pg_stat_user_tables
 ORDER BY pg_total_relation_size('public.' || relname) DESC
 LIMIT 10;
+
+-- 8) Project monitoring: registered project monitors and how they are doing.
+--    active = heartbeating, stale = watchdog flagged (no beat past budget),
+--    pending = registered, not yet heartbeated. Events are stored even when
+--    the Discord announce failed, with announced_at null in that case.
+SELECT h.name          AS project,
+       h.status,
+       h.last_heartbeat_at,
+       h.sla_minutes,
+       h.notify_channel_id,
+       (SELECT count(*) FROM infra_events e WHERE e.host_id = h.id) AS events_total,
+       (SELECT count(*) FROM infra_events e
+         WHERE e.host_id = h.id AND e.announced_at IS NULL) AS not_announced
+FROM infrastructure_hosts h
+ORDER BY h.last_heartbeat_at NULLS FIRST;

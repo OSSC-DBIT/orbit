@@ -48,7 +48,8 @@ computed run_at) wins, so boot jitter never delays a job.
 | `lifecycle_sweep` | expires or closes past listings (none stays stale in the catalog) | every hour |
 | `deadline_sweep` | materializes per-tenant deadline reminders and sends ones that fall due (reminder offsets default 72h / 24h / 6h) | every 15 minutes |
 | `digest_dispatch` | sends the daily digest to a guild when its local hour matches its `digest_hours` (guild timezone, IST by default) | checks every hour |
-| `retention_cleanup` | purges audit logs and finished job rows older than `RETENTION_DAYS` (default 90) | every 24 hours |
+| `infra_sweep` | project monitoring watchdog: flags registered projects whose heartbeat went quiet past their budget and posts one outage alert (next heartbeat posts the recovery) | every 15 minutes |
+| `retention_cleanup` | purges audit logs, finished job rows and pushed monitoring events older than `RETENTION_DAYS` (default 90) | every 24 hours |
 
 Non-recurring rows: one-shots via `scheduleOnce()` (idempotency key passed by
 the caller), for example deadline reminder inserts. Admin sync endpoints run
@@ -257,7 +258,7 @@ where job_type = 'sync_sources' and idempotency_key = 'recurring:sync_sources';
 | Path | Role |
 | --- | --- |
 | `src/jobs/scheduler.ts` | the loop, claims, retries, backoff, stale recovery |
-| `src/jobs/handlers.ts` | the five handlers, tenant filtering, digest hours, retention |
+| `src/jobs/handlers.ts` | the six handlers, tenant filtering, digest hours, retention |
 | `src/jobs/digest-cal.ts` | local-hour digest matching (guild timezone) |
 | `scheduled_jobs` table | the queue itself (see `src/database/schema`) |
 | `src/api/integrations.ts` | the health report builder |

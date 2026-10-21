@@ -26,6 +26,7 @@ export const tenantTables: string[] = [
   "deadline_notifications",
   "audit_logs",
   "infrastructure_hosts",
+  "infra_events",
 ];
 
 /**

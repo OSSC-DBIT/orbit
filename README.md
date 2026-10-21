@@ -47,6 +47,10 @@ Config: `/features` `/channels` `/preferences` `/digest` `/sources`
 
 Opportunities: `/opportunities` (`browse`, `detail`, `search`, `deadline`, `subscribe`, `unsubscribe`, category variants)
 
+Project monitoring (admin): `/project` (`add`, `list`, `remove`, `token`, `channel`, `test`): register your other
+projects so they push health and failure events into their own Discord channel via a bearer token;
+a watchdog flags projects whose heartbeats stop (see `docs/integrations.md`).
+
 All config mutations are admin gated (`Administrator`, `Manage Server`,
 or a principal listed via `/authorized-roles`). Authorization is strictly per guild;
 everyone can browse opportunities without any role.

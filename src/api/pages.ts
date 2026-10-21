@@ -8,6 +8,7 @@ import type { Request, Response, Router } from "express";
  */
 
 const PUBLIC_URL = "https://orbit-staging.webuildnow.in";
+export { PUBLIC_URL };
 const MAINTAINER = "OSSC DBIT, Bangalore";
 const CONTACT_NOTE = "Contact: maintainers via the project repository or the deployment host contact.";
 

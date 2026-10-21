@@ -2,6 +2,7 @@ import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
 import { coreCommands } from "./core.js";
 import { configCommands } from "./config.js";
 import { opportunityCommands } from "./opportunities.js";
+import { projectCommands } from "./projects.js";
 import {
   resolveTenantTimezone,
   isAdmin,
@@ -16,7 +17,7 @@ import { getLogger } from "../../core/logging/logger.js";
 
 /** Full command registry deployed to Discord's global application commands. */
 export function allCommands(): OrbitCommand[] {
-  return [...coreCommands(), ...configCommands(), ...opportunityCommands()];
+  return [...coreCommands(), ...configCommands(), ...opportunityCommands(), ...projectCommands()];
 }
 
 /**

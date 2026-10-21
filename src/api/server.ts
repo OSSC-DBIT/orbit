@@ -3,8 +3,10 @@ import { safeEquals } from "../core/security/crypto.js";
 import { toPrometheusText } from "../observability/metrics.js";
 import type { Database } from "../database/client.js";
 import { sql } from "drizzle-orm";
+import type { InfraService } from "../monitoring/infra.js";
 import { registerIntegrationRoutes } from "./integrations.js";
 import { registerStaticPages } from "./pages.js";
+import { registerProjectRoutes } from "./projects.js";
 
 /**
  * HTTP surface:
@@ -15,6 +17,8 @@ import { registerStaticPages } from "./pages.js";
  */
 export interface ApiServices {
   db: () => Database;
+  /** project monitoring ingest; null until the boot layer wires it (pushes then 503). */
+  infra: InfraService | null;
 }
 
 export function buildApiServer(services: ApiServices): Express {
@@ -112,6 +116,9 @@ export function buildApiServer(services: ApiServices): Express {
 
   // public static pages: /, /privacy, /terms (issues + compliance links)
   registerStaticPages(app);
+
+  // project monitoring ingest (bearer enrol token per project)
+  registerProjectRoutes(app, services.infra, services.db());
 
   // JSON error mapping – hides internals
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

@@ -28,6 +28,7 @@ function helpEmbed(): EmbedBuilder {
         "`/preferences` keyword and filter tuning - `/digest` digest schedule",
         "`/sources` view and manage opportunity sources - `/timezone` set guild timezone",
         "`/authorized-roles` add or remove admins by role or user - `/audit-log` recent actions",
+        "`/project` register external projects that push health and failures into their own channel",
         "",
         "Setup and configuration are restricted to server administrators and",
         "principals authorized via /authorized-roles. Everyone can browse with the",

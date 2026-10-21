@@ -12,6 +12,7 @@ import { getLogger, closeLogging, scopedLogger } from "./core/logging/logger.js"
 import { getDb, closeDb } from "./database/client.js";
 import { TenantService } from "./tenants/services/tenant-service.js";
 import { DeliveryService } from "./opportunities/delivery/delivery-service.js";
+import { InfraService, severityColor } from "./monitoring/infra.js";
 import { Collector } from "./opportunities/collectors/collector.js";
 import { ensureDefaultSources } from "./opportunities/connectors/registry.js";
 import { createConnector } from "./opportunities/connectors/index.js";
@@ -35,6 +36,7 @@ async function main(): Promise<void> {
   const ai = AiEngine.fromEnv();
   const collector = new Collector(db);
   const delivery = new DeliveryService(db, null); // resolver attaches post-gateway
+  const infra = new InfraService(db); // announcer attaches post-gateway
 
   const deps: CommandDeps = {
     tenant,
@@ -43,12 +45,38 @@ async function main(): Promise<void> {
     db,
     ai,
     collector,
+    infra,
   };
 
   // Discord gateway
   const bot = await startDiscordClient(deps, config);
   const resolver = new DiscordTargetResolver(bot.client, tenant);
   delivery.setTargets(resolver);
+
+  // Project monitoring announcements: the project's own channel first, the
+  // guild infrastructure binding as fallback; events are always stored even
+  // when no target exists.
+  infra.setAnnouncer(async (e) => {
+    if (!(await tenant.isFeatureEnabled(e.host.guildId, "infrastructure_alerts"))) return null;
+    const target =
+      e.host.notifyChannelId ?? (await resolver.resolve("infrastructure", e.host.guildId))?.id ?? null;
+    if (!target) return null;
+    const channel = resolver.toDiscordChannel(target, e.host.guildId);
+    if (!channel) return null;
+    await channel.send({
+      embeds: [
+        {
+          title: `${e.host.name} status`,
+          description: e.message.slice(0, 4000),
+          color: severityColor(e.severity),
+          footer: { text: "Orbit project monitoring" },
+          timestamp: e.occurredAt.toISOString(),
+        },
+      ],
+      allowedMentions: { parse: [] },
+    });
+    return target;
+  });
 
   if (process.env.DISCORD_REGISTER_COMMANDS !== "0") {
     try {
@@ -66,7 +94,7 @@ async function main(): Promise<void> {
     batchSize: 8,
     maxConcurrent: 4,
   });
-  registerJobHandlers({ scheduler, delivery, collector });
+  registerJobHandlers({ scheduler, delivery, collector, infra });
   for (const [jobType, payload] of Object.entries(recurringIntervals())) {
     await scheduler.ensureRecurring(jobType, Number((payload as { intervalSeconds: number }).intervalSeconds), payload);
   }
@@ -75,6 +103,7 @@ async function main(): Promise<void> {
   // HTTP API
   const app = buildApiServer({
     db: () => db,
+    infra,
   });
 
   registerSyncHandler(app, async (sourceId: string) => {

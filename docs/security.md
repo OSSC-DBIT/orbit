@@ -20,6 +20,7 @@
 | `DISCORD_BOT_TOKEN` | env only | never logged (pino redaction + redact.ts patterns) |
 | `APP_ENCRYPTION_KEY` | env only | optional; reserved for any future credential at rest |
 | `ADMIN_API_TOKEN` / `INTEGRATION_API_TOKEN` | env only | bearer tokens for admin and integration APIs |
+| Project enrol token | Discord `/project add` / `/project token`, shown once | bearer for the project ingest API; only the sha256 hash is stored (never the token) |
 
 `.env` is git ignored and excluded from the Docker build context. The `.env.example`
 template is committed with placeholders only. Rotate any value that ever entered
