@@ -4,6 +4,10 @@ Guide for AI coding agents (and newcomers) working in the Orbit repository.
 Read this before editing anything. It encodes invariants that regression tests
 and reviewers will hold you to.
 
+Version: 21.10.2026. On every release, bump this date and append the entry
+in `CHANGELOG.md`; repo docs live in 8 files only, keep it that way when
+touching docs.
+
 ## What Orbit is
 
 A multi tenant Discord bot and platform that discovers, normalizes,
