@@ -15,10 +15,14 @@ import { DeliveryService } from "./opportunities/delivery/delivery-service.js";
 import { InfraService, severityColor } from "./monitoring/infra.js";
 import { Collector } from "./opportunities/collectors/collector.js";
 import { ensureDefaultSources } from "./opportunities/connectors/registry.js";
-import { createConnector } from "./opportunities/connectors/index.js";
 import { AiEngine } from "./ai/services/engine.js";
 import { Scheduler } from "./jobs/scheduler.js";
-import { registerJobHandlers, recurringIntervals } from "./jobs/handlers.js";
+import {
+  claimSourceRun,
+  registerJobHandlers,
+  recurringIntervals,
+  runConnectorAndFanout,
+} from "./jobs/handlers.js";
 import { buildApiServer, registerSyncHandler } from "./api/server.js";
 import { startDiscordClient, registerCommands } from "./bot/client.js";
 import { DiscordTargetResolver } from "./bot/channel-resolver.js";
@@ -106,16 +110,22 @@ async function main(): Promise<void> {
     infra,
   });
 
+  // Admin sync runs one source end to end (fetch -> dedupe -> instant
+  // fanout), exactly like the hourly scheduler, so manually created
+  // listings never strand in the catalog without delivery.
   registerSyncHandler(app, async (sourceId: string) => {
     const rows = await db.execute(
-      sql`select kind, config, enabled from opportunity_sources where id = ${sourceId}`,
+      sql`select id, kind, config, enabled from opportunity_sources where id = ${sourceId}`,
     );
-    const row = (rows as unknown as { rows: Array<{ kind: string; config: Record<string, unknown> | null; enabled: number }> }).rows[0];
+    const row = (rows as unknown as {
+      rows: Array<{ id: string; kind: string; config: Record<string, unknown> | null; enabled: number }>;
+    }).rows[0];
     if (!row) return { error: "unknown source" };
     if (!row.enabled) return { error: "source disabled" };
-    const connector = createConnector(sourceId, row.kind, row.config ?? {});
-    if (!connector) return { error: "no connector" };
-    return collector.run(connector);
+    if (!(await claimSourceRun(db, sourceId))) {
+      return { sourceId, skipped: "source ran within the last minute; retry shortly" };
+    }
+    return runConnectorAndFanout(db, delivery, collector, { id: row.id, kind: row.kind, config: row.config });
   });
 
   const server = app.listen(config.PORT, () => {

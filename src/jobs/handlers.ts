@@ -70,7 +70,6 @@ export function registerJobHandlers(wiring: JobWiring): void {
 
 async function syncDueSourcesJob(wiring: JobWiring, _payload: Record<string, unknown>, ctx: JobContext): Promise<void> {
   const db = getDb();
-  const log = scopedLogger(getLogger(), { correlationId: ctx.correlationId, tenant: "sync" });
   await ensureDefaultSources(db);
 
   const sources = await db
@@ -96,33 +95,64 @@ async function syncDueSourcesJob(wiring: JobWiring, _payload: Record<string, unk
     const lastRun = source.lastRunAt ? source.lastRunAt.getTime() : 0;
     if (now - lastRun < intervalMs) continue;
 
-    // claim so concurrent workers or restarts can't double-run
-    const claimed = (await db.execute(sql`
-      update opportunity_sources
-      set last_run_at = now()
-      where id = ${source.id}
-        and (last_run_at is null or last_run_at < now() - interval '65 seconds')
-    `)) as unknown as { rowCount?: number | null };
-    if (!claimed.rowCount) continue;
-
-    const connector = createConnector(source.id, source.kind, source.config ?? {});
-    if (!connector) {
-      await db
-        .update(opportunitySources)
-        .set({ lastError: "connector not available for this source kind" })
-        .where(eq(opportunitySources.id, source.id));
-      log.warn({ sourceId: source.id }, "no connector");
-      continue;
-    }
-
-    const stats = await wiring.collector.run(connector);
-    metrics.sourceRuns(stats.errored ? "error" : "ok");
-    log.info({ ...stats }, "source synced");
-
-    if (!stats.errored && stats.changedIds.length > 0) {
-      await deliverFreshListings(db, wiring.delivery, stats.changedIds);
-    }
+    if (!(await claimSourceRun(db, source.id))) continue;
+    await runConnectorAndFanout(db, wiring.delivery, wiring.collector, {
+      id: source.id,
+      kind: source.kind,
+      config: source.config,
+    });
   }
+}
+
+/**
+ * Claims a run for one source so concurrent workers, restarts or admin
+ * triggers cannot double-run it within the 65 second staleness guard.
+ */
+export async function claimSourceRun(db: Database, sourceId: string): Promise<boolean> {
+  const res = (await db.execute(sql`
+    update opportunity_sources
+    set last_run_at = now()
+    where id = ${sourceId}
+      and (last_run_at is null or last_run_at < now() - interval '65 seconds')
+  `)) as unknown as { rowCount?: number | null };
+  return Boolean(res.rowCount);
+}
+
+/** The source columns both entry points need to run and fan out. */
+export interface SourceRunInputs {
+  id: string;
+  kind: string;
+  config: Record<string, unknown> | null;
+}
+
+/**
+ * Runs one claimed source end to end: connector -> collector -> instant
+ * fanout. Shared by the hourly sync job and the admin sync endpoint so a
+ * manually triggered sync delivers exactly like the scheduler does.
+ */
+export async function runConnectorAndFanout(
+  db: Database,
+  delivery: DeliveryService,
+  collector: Collector,
+  source: SourceRunInputs,
+): Promise<unknown> {
+  const log = scopedLogger(getLogger(), { sourceId: source.id });
+  const connector = createConnector(source.id, source.kind, source.config ?? {});
+  if (!connector) {
+    await db
+      .update(opportunitySources)
+      .set({ lastError: "connector not available for this source kind" })
+      .where(eq(opportunitySources.id, source.id));
+    log.warn("no connector");
+    return { error: "no connector" };
+  }
+  const stats = await collector.run(connector);
+  metrics.sourceRuns(stats.errored ? "error" : "ok");
+  log.info({ ...stats }, "source synced");
+  if (!stats.errored && stats.changedIds.length > 0) {
+    await deliverFreshListings(db, delivery, stats.changedIds);
+  }
+  return stats;
 }
 
 /**
