@@ -116,7 +116,8 @@ Per-source collection every `SYNC_INTERVAL_MINUTES` (default 420 = 7h), i.e.
 3-4 collection passes/day/source; per-source overrides live in
 `opportunity_sources.interval_minutes`. Health per source (last run, last
 success, failure streak, last error) is visible to admins and in the
-integration report.
+integration report. The queue mechanics behind these cadences, plus every
+health probe and the failure playbook, are documented in `docs/scheduling.md`.
 
 ## Adding a new source (checklist)
 
